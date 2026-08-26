@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Al Bowry Carpentry LLC - Invoice System</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="public/logo.png">
+    <link rel="apple-touch-icon" href="public/logo.png">
+    <meta name="theme-color" content="#1a3a5c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- LOADING SCREEN -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Al Bowry Carpentry LLC</h2>
+            <p>Loading Invoice System...</p>
+        </div>
+    </div>
+
+    <!-- LOGIN PAGE -->
+    <div id="loginPage" class="login-page" style="display:none;">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-header">
+                    <img src="public/logo.png" alt="Logo" class="login-logo" onerror="this.style.display='none'">
+                    <h1>Al Bowry Carpentry</h1>
+                    <p>Invoice Management System</p>
+                </div>
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="loginEmail" required placeholder="Enter email">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="loginPassword" required placeholder="Enter password">
+                            <button type="button" class="toggle-pass" onclick="togglePassword()">Show</button>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="main-app" style="display:none;">
+        <!-- SIDEBAR -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <img src="public/logo.png" alt="Logo" class="sidebar-logo" onerror="this.style.display='none'">
+                <h2>Al Bowry</h2>
+                <p class="sidebar-subtitle">Carpentry LLC</p>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">MAIN</span>
+                    <a href="#" class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+                        <span class="nav-icon">&#9632;</span> Dashboard
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">SALES</span>
+                    <a href="#" class="nav-item" data-page="invoices" onclick="navigateTo('invoices')">
+                        <span class="nav-icon">&#9744;</span> Invoices
+                    </a>
+                    <a href="#" class="nav-item" data-page="quotations" onclick="navigateTo('quotations')">
+                        <span class="nav-icon">&#9998;</span> Quotations
+                    </a>
+                    <a href="#" class="nav-item" data-page="customers" onclick="navigateTo('customers')">
+                        <span class="nav-icon">&#9823;</span> Customers
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">PURCHASE</span>
+                    <a href="#" class="nav-item" data-page="suppliers" onclick="navigateTo('suppliers')">
+                        <span class="nav-icon">&#9830;</span> Suppliers
+                    </a>
+                    <a href="#" class="nav-item" data-page="purchases" onclick="navigateTo('purchases')">
+                        <span class="nav-icon">&#9745;</span> Purchases
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">ANALYTICS</span>
+                    <a href="#" class="nav-item" data-page="reports" onclick="navigateTo('reports')">
+                        <span class="nav-icon">&#9776;</span> Reports
+                    </a>
+                    <a href="#" class="nav-item" data-page="vat-reports" onclick="navigateTo('vat-reports')">
+                        <span class="nav-icon">&#9733;</span> VAT Reports
+                    </a>
+                </div>
+                <div class="nav-section">
+                    <span class="nav-section-title">SYSTEM</span>
+                    <a href="#" class="nav-item" data-page="settings" onclick="navigateTo('settings')">
+                        <span class="nav-icon">&#9881;</span> Settings
+                    </a>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <img src="" alt="" id="sidebarPhoto" class="user-avatar" onerror="this.style.display='none'">
+                    <div>
+                        <span class="user-name" id="sidebarUserName">Admin</span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="handleLogout()">Logout</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>
+                <h1 id="pageTitle">Dashboard</h1>
+                <div class="topbar-actions">
+                    <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">&#9790;</button>
+                    <button class="btn-icon" onclick="navigateTo('settings')" title="Settings">&#9881;</button>
+                </div>
+            </header>
+
+            <!-- PAGE CONTAINER -->
+            <div id="pageContainer" class="page-container">
+                <!-- Pages load here dynamically -->
+            </div>
+        </main>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- CONFIRM DIALOG -->
+    <div id="confirmOverlay" class="confirm-overlay" style="display:none;">
+        <div class="confirm-box">
+            <p id="confirmMessage"></p>
+            <div class="confirm-actions">
+                <button class="btn btn-secondary" onclick="confirmResult(false)">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmResult(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/db.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/customers.js"></script>
+    <script src="js/invoices.js"></script>
+    <script src="js/quotations.js"></script>
+    <script src="js/suppliers.js"></script>
+    <script src="js/purchases.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/vat-reports.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/pdf.js"></script>
+    <script src="js/whatsapp.js"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+    "name": "Al Bowry Carpentry LLC - Invoice System",
+    "short_name": "Al Bowry Invoice",
+    "description": "Professional Invoice & Accounting System for Al Bowry Carpentry LLC",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "background_color": "#0f2439",
+    "theme_color": "#1a3a5c",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "public/logo.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "public/logo.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
