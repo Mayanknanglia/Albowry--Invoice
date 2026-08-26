@@ -8,8 +8,6 @@
     <link rel="icon" type="image/png" href="public/logo.png">
     <link rel="apple-touch-icon" href="public/logo.png">
     <meta name="theme-color" content="#1a3a5c">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -17,8 +15,8 @@
     <div id="loadingScreen" class="loading-screen">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <h2>Al Bowry Carpentry LLC</h2>
-            <p>Loading Invoice System...</p>
+            <h2>Al Bowry Carpentry</h2>
+            <p id="loadingText">Connecting to Secure Cloud...</p>
         </div>
     </div>
 
@@ -29,12 +27,12 @@
                 <div class="login-header">
                     <img src="public/logo.png" alt="Logo" class="login-logo" onerror="this.style.display='none'">
                     <h1>Al Bowry Carpentry</h1>
-                    <p>Invoice Management System</p>
+                    <p>Cloud Invoice System</p>
                 </div>
                 <form id="loginForm" onsubmit="handleLogin(event)">
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" id="loginEmail" required placeholder="Enter email">
+                        <input type="email" id="loginEmail" required placeholder="Enter admin email">
                     </div>
                     <div class="form-group">
                         <label>Password</label>
@@ -43,7 +41,7 @@
                             <button type="button" class="toggle-pass" onclick="togglePassword()">Show</button>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-full">Login</button>
+                    <button type="submit" class="btn btn-primary btn-full">Secure Login</button>
                 </form>
             </div>
         </div>
@@ -107,7 +105,7 @@
                     <img src="" alt="" id="sidebarPhoto" class="user-avatar" onerror="this.style.display='none'">
                     <div>
                         <span class="user-name" id="sidebarUserName">Admin</span>
-                        <span class="user-role">Administrator</span>
+                        <span class="user-role">Cloud Synced ☁️</span>
                     </div>
                 </div>
                 <button class="btn-logout" onclick="handleLogout()">Logout</button>
@@ -121,25 +119,18 @@
                 <button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>
                 <h1 id="pageTitle">Dashboard</h1>
                 <div class="topbar-actions">
-                    <!-- NEW INSTALL BUTTON -->
                     <button id="installAppBtn" class="btn btn-sm btn-accent" style="display:none; font-weight:bold; margin-right:8px;">📥 Install App</button>
-                    
                     <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">&#9790;</button>
                     <button class="btn-icon" onclick="navigateTo('settings')" title="Settings">&#9881;</button>
                 </div>
             </header>
-
             <!-- PAGE CONTAINER -->
-            <div id="pageContainer" class="page-container">
-                <!-- Pages load here dynamically -->
-            </div>
+            <div id="pageContainer" class="page-container"></div>
         </main>
     </div>
 
-    <!-- TOAST -->
+    <!-- TOAST & OVERLAYS -->
     <div id="toastContainer" class="toast-container"></div>
-
-    <!-- CONFIRM DIALOG -->
     <div id="confirmOverlay" class="confirm-overlay" style="display:none;">
         <div class="confirm-box">
             <p id="confirmMessage"></p>
@@ -150,11 +141,15 @@
         </div>
     </div>
 
-    <!-- SCRIPTS -->
+    <!-- FIREBASE SDKs (Compat Version for Vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <!-- OUR SCRIPTS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/db.js"></script>
+    <script src="js/db.js"></script>    <!-- New Sync Engine -->
     <script src="js/auth.js"></script>
     <script src="js/app.js"></script>
     <script src="js/dashboard.js"></script>
