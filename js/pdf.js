@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Invoice PDF Generator (FINAL)
-// Thick Dark Boxes, No VAT Analysis, No Branch
+// Logo Fixed, Contact in Footer, Big Stamp Area
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -27,7 +27,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
         amount: { x: M + 152,    w: 38 }
     };
     
-    const splitX = col.qty.x; // MASTER LOCK LINE
+    const splitX = col.qty.x; // MASTER LOCK LINE (Vertical aligner)
 
     // ─── HELPERS (DARK THICK LINES) ───
     const drawCell = (text, x, y, opts = {}) => {
@@ -61,11 +61,14 @@ function generateInvoicePDF(invoiceId, preview = false) {
     // ═══════════════════════════════════════════════════
     // ROW 2: LOGO & COMPANY DETAILS
     // ═══════════════════════════════════════════════════
-    y += 3;
+    y += 4;
     if (settings.logoUrl) { 
-        try { doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 20, y, 40, 22); } catch(e) {} 
+        try { 
+            // Fixed Logo Dimensions to avoid stretching (Wider Aspect Ratio)
+            doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 22.5, y, 45, 15); 
+        } catch(e) {} 
     }
-    y += 24;
+    y += 18; // Adjusted spacing after logo
 
     drawCell(settings.companyName.toUpperCase(), pageW/2, y, { bold: true, size: 16, align: 'center', color: [26, 58, 92] });
     y += 5;
@@ -81,21 +84,13 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 5; 
     hLine(y);
 
-    // ═══════════════════════════════════════════════════
-    // ROW 3: CONTACT ROW
-    // ═══════════════════════════════════════════════════
-    y += 5;
-    const cw = W / 3;
-    drawCell('Contact:', M + 3, y, { bold: true }); drawCell(settings.phone || '-', M + 18, y);
-    drawCell('Website:', M + cw + 3, y, { bold: true }); drawCell(settings.website || '-', M + cw + 20, y);
-    drawCell('E-Mail:', M + 2*cw + 3, y, { bold: true }); drawCell(settings.email || '-', M + 2*cw + 16, y);
-    y += 4; hLine(y);
+    // (NOTE: Contact Row removed from here and moved to Footer)
 
     // ═══════════════════════════════════════════════════
-    // ROW 4: BUYER & INVOICE DETAILS
+    // ROW 3: BUYER & INVOICE DETAILS
     // ═══════════════════════════════════════════════════
     const buyerBoxTop = y;
-    const buyerBoxH = 40;
+    const buyerBoxH = 38;
     
     // Left: Buyer
     let leftY = y + 6;
@@ -122,7 +117,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y = buyerBoxTop + buyerBoxH; hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 5: PROJECT
+    // ROW 4: PROJECT
     // ═══════════════════════════════════════════════════
     if (invoice.projectName) {
         y += 5;
@@ -131,7 +126,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     }
 
     // ═══════════════════════════════════════════════════
-    // ROW 6: ITEMS TABLE
+    // ROW 5: ITEMS TABLE
     // ═══════════════════════════════════════════════════
     const headerTop = y;
     doc.setFillColor(235, 235, 235); 
@@ -180,7 +175,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 7: TOTALS SECTION
+    // ROW 6: TOTALS SECTION
     // ═══════════════════════════════════════════════════
     const totalsTop = y;
     y += 5.5;
@@ -210,7 +205,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     vLine(col.amount.x, totalsTop, y); hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 8: GRAND TOTAL
+    // ROW 7: GRAND TOTAL
     // ═══════════════════════════════════════════════════
     doc.setFillColor(242, 246, 249); 
     doc.rect(M, y, W, 10, 'F');
@@ -221,7 +216,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     vLine(col.amount.x, y - 10, y); hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 9: AMOUNT IN WORDS
+    // ROW 8: AMOUNT IN WORDS
     // ═══════════════════════════════════════════════════
     y += 5;
     drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9.5 });
@@ -230,43 +225,48 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10.5, color: [26, 58, 92] });
     y += 4; hLine(y);
 
-    // (VAT ANALYSIS SECTION COMPLETELY REMOVED)
-
     // ═══════════════════════════════════════════════════
-    // ROW 10: BANK DETAILS (LEFT) & SIGNATURE (RIGHT)
+    // ROW 9: FOOTER (BANK, CONTACT & SIGNATURE BOX)
     // ═══════════════════════════════════════════════════
     const bottomBoxTop = y;
     
+    // Left Box Part 1: Bank Details
     y += 6;
-    drawCell("Company's Bank Details", M + 3, y, { bold: true, size: 10.5 }); y += 6;
+    drawCell("Company's Bank Details", M + 3, y, { bold: true, size: 10.5 }); y += 5;
     
     const bx = M + 3; const by = M + 30;
-    drawCell('A/c Holder:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.companyName, by, y, { bold: true, size: 9.5 }); y += 5;
-    drawCell('Bank Name:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankName || '-', by, y, { size: 9.5 }); y += 5;
-    drawCell('A/c No.:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankAccount || '-', by, y, { bold: true, size: 9.5 }); y += 5;
-    drawCell('IBAN:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankIban || '-', by, y, { size: 9.5 }); y += 5;
+    drawCell('A/c Holder:', bx, y, { bold: true, size: 9 }); drawCell(settings.companyName, by, y, { bold: true, size: 9 }); y += 4;
+    drawCell('Bank Name:', bx, y, { bold: true, size: 9 }); drawCell(settings.bankName || '-', by, y, { size: 9 }); y += 4;
+    drawCell('A/c No.:', bx, y, { bold: true, size: 9 }); drawCell(settings.bankAccount || '-', by, y, { bold: true, size: 9 }); y += 4;
+    drawCell('IBAN:', bx, y, { bold: true, size: 9 }); drawCell(settings.bankIban || '-', by, y, { size: 9 }); y += 6;
     
-    // (BRANCH ROW COMPLETELY REMOVED)
+    // Left Box Part 2: Contact Details (Moved here from Top)
+    drawCell("Contact Details", M + 3, y, { bold: true, size: 10.5 }); y += 5;
+    drawCell('Phone:', bx, y, { bold: true, size: 9 }); drawCell(settings.phone || '-', by, y, { size: 9 }); y += 4;
+    drawCell('Email:', bx, y, { bold: true, size: 9 }); drawCell(settings.email || '-', by, y, { size: 9 }); y += 4;
+    drawCell('Website:', bx, y, { bold: true, size: 9 }); drawCell(settings.website || '-', by, y, { size: 9 }); y += 2;
 
-    const boxBottomY = Math.max(y + 6, bottomBoxTop + 38);
+    const boxBottomY = Math.max(y + 3, bottomBoxTop + 45); // Huge space for Stamp on the right!
 
-    // Right Box: For Company Name & Signature
+    // Right Box: Stamp & Signature Space
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 7, { bold: true, size: 10.5, align: 'right' });
+    // Lots of empty space here for actual physical stamping!
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 4, { bold: true, size: 10, align: 'right' });
 
+    // Lock divider line with the Qty column from above
     vLine(splitX, bottomBoxTop, boxBottomY);
     hLine(boxBottomY);
     
     y = boxBottomY;
     
     // ═══════════════════════════════════════════════════
-    // FOOTER 
+    // PAGE FOOTER TEXT 
     // ═══════════════════════════════════════════════════
-    y += 6;
+    y += 5;
     drawCell('This is a Computer Generated Invoice', pageW/2, y, { italic: true, size: 8.5, align: 'center', color: [100,100,100] });
 
     // ═══════════════════════════════════════════════════
-    // DRAW OUTER BORDER AT THE VERY END
+    // DRAW OUTER BORDER AT THE VERY END (Solves color bleeding)
     // ═══════════════════════════════════════════════════
     doc.setDrawColor(0);
     doc.setLineWidth(0.6); 
