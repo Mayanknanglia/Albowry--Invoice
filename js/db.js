@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - LocalStorage Database
+// AL BOWRY CARPENTRY LLC - LocalStorage Database (FIXED)
 // ═══════════════════════════════════════════════════════
 
 const DB_KEYS = {
@@ -24,7 +24,7 @@ const DEFAULT_SETTINGS = {
     bankAccount: '101XXXXXXXXX',
     bankIban: 'AEXXXXXXXXXXXXXXXXXXXXX',
     bankBranch: 'Sharjah Main Branch',
-    invoicePrefix: 'ABC',
+    invoicePrefix: 'ABC', // ✅ YEH FIX HAI
     vatRate: 5, // 5% UAE VAT
     logoUrl: 'public/logo.png',
     profilePhoto: '',
@@ -63,7 +63,11 @@ const DB = {
         const year = new Date().getFullYear();
         let counter = localStorage.getItem(DB_KEYS.INV_COUNTER) || '0';
         counter = parseInt(counter) + 1;
-        return `${settings.invoicePrefix}-${year}-${counter.toString().padStart(3, '0')}`;
+        
+        // ✅ FIX: Ensure prefix is not undefined or empty
+        const prefix = (settings.invoicePrefix && settings.invoicePrefix.trim() !== '') ? settings.invoicePrefix.trim() : 'ABC';
+        
+        return `${prefix}-${year}-${counter.toString().padStart(3, '0')}`;
     },
 
     incrementInvoiceCounter() {
