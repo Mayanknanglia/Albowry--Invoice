@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Invoice PDF Generator (FINAL)
-// Thick Dark Boxes, No Background Overflow, No Terms
+// Thick Dark Boxes, No VAT Analysis, No Branch
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -37,7 +37,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
         doc.text(String(text || ''), x, y, { align: opts.align || 'left' });
     };
 
-    // Table inner lines thickness
     const LINE_W = 0.4; 
 
     const hLine = (yPos) => { 
@@ -51,9 +50,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
         doc.setLineWidth(LINE_W); 
         doc.line(x, y1, x, y2); 
     };
-
-    // NOTE: Outer border is removed from here. It will be drawn at the VERY END 
-    // to prevent grey/blue backgrounds from overflowing the borders!
 
     // ═══════════════════════════════════════════════════
     // ROW 1: TITLE "TAX INVOICE"
@@ -184,7 +180,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 7: TOTALS SECTION 
+    // ROW 7: TOTALS SECTION
     // ═══════════════════════════════════════════════════
     const totalsTop = y;
     y += 5.5;
@@ -234,30 +230,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10.5, color: [26, 58, 92] });
     y += 4; hLine(y);
 
-    // ═══════════════════════════════════════════════════
-    // ROW 10: VAT ANALYSIS
-    // ═══════════════════════════════════════════════════
-    if (invoice.vatEnabled) {
-        y += 5; drawCell('VAT Analysis', pageW/2, y, { bold: true, size: 9.5, align: 'center' }); y += 3; hLine(y);
-        const vw = W / 4; const vx = [M, M+vw, M+2*vw, M+3*vw];
-        
-        doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 6, 'F');
-        drawCell('Taxable Value', vx[0]+vw/2, y + 4, { bold: true, size: 9, align: 'center' });
-        drawCell('VAT Rate', vx[1]+vw/2, y + 4, { bold: true, size: 9, align: 'center' });
-        drawCell('VAT Amount', vx[2]+vw/2, y + 4, { bold: true, size: 9, align: 'center' });
-        drawCell('Total Tax Amount', vx[3]+vw/2, y + 4, { bold: true, size: 9, align: 'center' });
-        y += 6; hLine(y); y += 4.5;
-        
-        drawCell(formatNum(invoice.taxable), vx[0]+vw/2, y, { align: 'center', size: 9.5 }); drawCell(`${invoice.vatRate}%`, vx[1]+vw/2, y, { align: 'center', size: 9.5 });
-        drawCell(formatNum(invoice.vatAmount), vx[2]+vw/2, y, { align: 'center', size: 9.5 }); drawCell(formatNum(invoice.vatAmount), vx[3]+vw/2, y, { align: 'center', size: 9.5 });
-        y += 2.5; vLine(vx[1], y-13, y); vLine(vx[2], y-13, y); vLine(vx[3], y-13, y); hLine(y);
-        
-        y += 5; drawCell('Tax Amount (in words):', M + 3, y, { bold: true, size: 9.5 }); y += 5; 
-        drawCell(numberToWords(invoice.vatAmount), M + 3, y, { bold: true, size: 9.5 }); y += 4; hLine(y);
-    }
+    // (VAT ANALYSIS SECTION COMPLETELY REMOVED)
 
     // ═══════════════════════════════════════════════════
-    // ROW 11: BANK DETAILS (LEFT) & SIGNATURE (RIGHT) 
+    // ROW 10: BANK DETAILS (LEFT) & SIGNATURE (RIGHT)
     // ═══════════════════════════════════════════════════
     const bottomBoxTop = y;
     
@@ -269,13 +245,12 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('Bank Name:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankName || '-', by, y, { size: 9.5 }); y += 5;
     drawCell('A/c No.:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankAccount || '-', by, y, { bold: true, size: 9.5 }); y += 5;
     drawCell('IBAN:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankIban || '-', by, y, { size: 9.5 }); y += 5;
-    drawCell('Branch:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankBranch || '-', by, y, { size: 9.5 }); y += 6;
     
-    // (Terms & Conditions block completely removed as requested)
+    // (BRANCH ROW COMPLETELY REMOVED)
 
-    const boxBottomY = Math.max(y + 2, bottomBoxTop + 38);
+    const boxBottomY = Math.max(y + 6, bottomBoxTop + 38);
 
-    // Right Box: For Company Name (Top) + Signature (Bottom)
+    // Right Box: For Company Name & Signature
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 7, { bold: true, size: 10.5, align: 'right' });
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 4, { bold: true, size: 10, align: 'right' });
 
@@ -291,10 +266,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('This is a Computer Generated Invoice', pageW/2, y, { italic: true, size: 8.5, align: 'center', color: [100,100,100] });
 
     // ═══════════════════════════════════════════════════
-    // DRAW OUTER BORDER AT THE VERY END (Fixes Background Overlap)
+    // DRAW OUTER BORDER AT THE VERY END
     // ═══════════════════════════════════════════════════
     doc.setDrawColor(0);
-    doc.setLineWidth(0.6); // Extra thick outer border
+    doc.setLineWidth(0.6); 
     doc.rect(M, M, W, pageH - 2*M, 'S');
 
     // ─── OUTPUT ───
