@@ -311,8 +311,8 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
             // Large stamp that fills available right area
             // Leave ~5mm top for company name, ~5mm bottom for "Authorised Signatory"
-            const sigW = 62;  // BIG width
-            const sigH = Math.min(28, rightBoxH - 12); // fill height of box
+            const sigW = 70;  // BIG width
+            const sigH = Math.min(40, rightBoxH - 40); // fill height of box
             const sigX = splitX + (rightBoxW - sigW) / 2;
             const sigY = bottomBoxTop + 7;
 
