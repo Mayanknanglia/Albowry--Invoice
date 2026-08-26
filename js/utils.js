@@ -7,14 +7,17 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
 
-// Format number to 2 decimal places (1234.50)
+// Format number to 2 decimal places with commas (e.g., 1,234.50)
 function formatNum(num) {
-    return parseFloat(num || 0).toFixed(2);
+    return parseFloat(num || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 }
 
 // Format Currency (AED 1,234.00)
 function formatCurrency(amount) {
-    return 'AED ' + parseFloat(amount || 0).toLocaleString('en-AE', {
+    return 'AED ' + parseFloat(amount || 0).toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
@@ -53,35 +56,49 @@ function getUnitOptions() {
     `;
 }
 
-// Number to Words (AED & Fils)
+// Number to Words (US / UAE International Format - Thousands, Millions, Billions)
 function numberToWords(amount) {
-    if (!amount || amount === 0) return 'AED Zero Only';
+    if (!amount || parseFloat(amount) === 0) return 'AED Zero Only';
     
-    const a = ['','One ','Two ','Three ','Four ', 'Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-    const b = ['', '', 'Twenty','Thirty','Forty','Fifty', 'Sixty','Seventy','Eighty','Ninety'];
+    const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+    const b = ['', '', 'Twenty ', 'Thirty ', 'Forty ', 'Fifty ', 'Sixty ', 'Seventy ', 'Eighty ', 'Ninety '];
+    const scales = ['', 'Thousand ', 'Million ', 'Billion ', 'Trillion '];
 
-    function convertWhole(num) {
-        if ((num = num.toString()).length > 9) return 'Overflow';
-        let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
-        if (!n) return;
+    function convertChunk(num) {
         let str = '';
-        str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
-        str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
-        str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
-        str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
-        str += (n[5] != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+        if (num > 99) { str += a[Math.floor(num / 100)] + 'Hundred '; num %= 100; }
+        if (num > 19) { str += b[Math.floor(num / 10)]; num %= 10; }
+        if (num > 0) { str += a[num]; }
         return str;
     }
 
     const parts = parseFloat(amount).toFixed(2).split('.');
-    const dirhams = parseInt(parts[0]);
+    let dirhams = parseInt(parts[0]);
     const fils = parseInt(parts[1]);
 
-    let words = 'AED ' + convertWhole(dirhams);
-    if (fils > 0) {
-        words += ' and ' + convertWhole(fils) + 'Fils';
+    if (dirhams === 0) {
+        let words = 'AED Zero';
+        if (fils > 0) words += ' and ' + convertChunk(fils).trim() + ' Fils';
+        return words.trim() + ' Only';
     }
-    return words.trim() + ' Only';
+
+    let wordStr = '';
+    let scaleIdx = 0;
+    
+    while (dirhams > 0) {
+        let chunk = dirhams % 1000;
+        if (chunk > 0) {
+            wordStr = convertChunk(chunk) + scales[scaleIdx] + wordStr;
+        }
+        dirhams = Math.floor(dirhams / 1000);
+        scaleIdx++;
+    }
+
+    let finalStr = 'AED ' + wordStr.trim();
+    if (fils > 0) {
+        finalStr += ' and ' + convertChunk(fils).trim() + ' Fils';
+    }
+    return finalStr + ' Only';
 }
 
 // Toast Notifications
