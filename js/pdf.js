@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Invoice PDF Generator (v3 FINAL)
-// Perfect Box Alignment - No Overlaps
+// AL BOWRY CARPENTRY LLC - Invoice PDF Generator (FINAL)
+// Perfect Box Alignment - No Overlaps - Bigger & Bolder Fonts
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -10,29 +10,27 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pageW = doc.internal.pageSize.getWidth(); // 210
-    const pageH = doc.internal.pageSize.getHeight(); // 297
+    const pageW = 210;
+    const pageH = 297;
     
-    const M = 10; // margin
-    const W = pageW - 2*M; // usable width = 190
+    const M = 10; // Margin
+    const W = pageW - 2*M; // Usable width = 190
     let y = M;
 
-    // Helper: Draw text in a cell
+    // ─── HELPERS ───
     const drawCell = (text, x, y, opts = {}) => {
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
-        doc.setFontSize(opts.size || 8.5);
+        doc.setFontSize(opts.size || 9.5); // Default size increased to 9.5
         doc.setTextColor(...(opts.color || [0,0,0]));
         doc.text(String(text || ''), x, y, { align: opts.align || 'left' });
     };
 
-    // Helper: Draw horizontal line
     const hLine = (yPos) => {
         doc.setDrawColor(0);
         doc.setLineWidth(0.3);
         doc.line(M, yPos, M + W, yPos);
     };
 
-    // Helper: Draw vertical line
     const vLine = (x, y1, y2) => {
         doc.setDrawColor(0);
         doc.setLineWidth(0.3);
@@ -47,124 +45,96 @@ function generateInvoicePDF(invoiceId, preview = false) {
     doc.rect(M, M, W, pageH - 2*M);
 
     // ═══════════════════════════════════════════════════
-    // ROW 1: TITLE "Tax Invoice"
+    // ROW 1: TITLE
     // ═══════════════════════════════════════════════════
-    drawCell('Tax Invoice', pageW/2, y + 7, { bold: true, size: 12, align: 'center' });
+    drawCell('TAX INVOICE', pageW/2, y + 7, { bold: true, size: 14, align: 'center' });
     y += 10;
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 2: LOGO + COMPANY NAME + ADDRESS + TRN (Center)
+    // ROW 2: LOGO & COMPANY
     // ═══════════════════════════════════════════════════
-    const headerBoxTop = y;
     y += 3;
-    
-    // Logo
     if (settings.logoUrl) {
-        try {
-            doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 15, y, 30, 22);
-        } catch(e) {}
+        try { doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 20, y, 40, 25); } catch(e) {}
     }
-    y += 24;
+    y += 28;
 
-    // Company Name
-    drawCell(settings.companyName.toUpperCase(), pageW/2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] });
+    drawCell(settings.companyName.toUpperCase(), pageW/2, y, { bold: true, size: 16, align: 'center', color: [26, 58, 92] });
     y += 5;
 
-    // Address
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(9);
     const addrLines = doc.splitTextToSize(settings.address, 130);
-    addrLines.forEach(line => {
-        doc.text(line, pageW/2, y, { align: 'center' });
-        y += 3.8;
-    });
+    addrLines.forEach(line => { doc.text(line, pageW/2, y, { align: 'center' }); y += 4; });
     doc.text('United Arab Emirates', pageW/2, y, { align: 'center' });
-    y += 4;
+    y += 5;
 
-    // TRN
-    drawCell(`TRN: ${settings.trn || 'N/A'}`, pageW/2, y, { bold: true, size: 9, align: 'center' });
+    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW/2, y, { bold: true, size: 10, align: 'center' });
     y += 5;
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 3: CONTACT ROW (3 columns)
+    // ROW 3: CONTACT ROW
     // ═══════════════════════════════════════════════════
-    const contactRowTop = y;
     y += 5;
-    
     const cw = W / 3;
-    const contactCol1 = M + 3;
-    const contactCol2 = M + cw + 3;
-    const contactCol3 = M + 2*cw + 3;
+    drawCell('Contact:', M + 3, y, { bold: true, size: 9 });
+    drawCell(settings.phone || 'N/A', M + 20, y, { size: 9 });
     
-    drawCell('Contact:', contactCol1, y, { bold: true, size: 8.5 });
-    drawCell(settings.phone || 'N/A', contactCol1 + 18, y, { size: 8.5 });
+    drawCell('Website:', M + cw + 3, y, { bold: true, size: 9 });
+    drawCell(settings.website || 'N/A', M + cw + 22, y, { size: 9 });
     
-    drawCell('Website:', contactCol2, y, { bold: true, size: 8.5 });
-    drawCell(settings.website || 'N/A', contactCol2 + 20, y, { size: 8.5 });
-    
-    drawCell('E-Mail:', contactCol3, y, { bold: true, size: 8.5 });
-    drawCell(settings.email || 'N/A', contactCol3 + 15, y, { size: 8.5 });
+    drawCell('E-Mail:', M + 2*cw + 3, y, { bold: true, size: 9 });
+    drawCell(settings.email || 'N/A', M + 2*cw + 18, y, { size: 9 });
     
     y += 4;
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 4: BUYER (LEFT) + INVOICE INFO (RIGHT)
+    // ROW 4: BUYER & INVOICE DETAILS
     // ═══════════════════════════════════════════════════
     const buyerBoxTop = y;
     const buyerBoxH = 40;
-    const splitX = M + (W * 0.6); // 60/40 split
+    const splitX = M + (W * 0.55); // 55% space for buyer, 45% for invoice details
     
     // Left: Buyer
-    let leftY = y + 5;
-    drawCell('Buyer (Bill to):', M + 3, leftY, { bold: true, size: 9 });
-    leftY += 5;
-    drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 10 });
-    leftY += 5;
+    let leftY = y + 6;
+    drawCell('Buyer (Bill to):', M + 3, leftY, { bold: true, size: 10 });
+    leftY += 6;
+    drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 12 });
+    leftY += 6;
     
-    const custAddrLines = doc.splitTextToSize(invoice.customerAddress || 'N/A', splitX - M - 8);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    custAddrLines.slice(0, 3).forEach(line => {
-        doc.text(line, M + 3, leftY);
-        leftY += 3.8;
-    });
+    doc.setFontSize(9);
+    const custAddrLines = doc.splitTextToSize(invoice.customerAddress || '', splitX - M - 6);
+    custAddrLines.slice(0, 3).forEach(line => { doc.text(line, M + 3, leftY); leftY += 4; });
     
-    if (invoice.customerPhone) {
-        doc.text(`Phone: ${invoice.customerPhone}`, M + 3, leftY);
-        leftY += 3.8;
-    }
-    if (invoice.customerTRN) {
-        drawCell(`TRN: ${invoice.customerTRN}`, M + 3, leftY, { bold: true, size: 8 });
-    }
+    if (invoice.customerPhone) { doc.text(`Phone: ${invoice.customerPhone}`, M + 3, leftY); leftY += 4; }
+    if (invoice.customerTRN) { drawCell(`TRN: ${invoice.customerTRN}`, M + 3, leftY, { bold: true, size: 9 }); }
     
-    // Right: Invoice Info (label-value pairs)
-    let rightY = y + 5;
-    const labelX = splitX + 3;
-    const valueX = splitX + 26;
+    // Right: Invoice Info
+    let rightY = y + 6;
+    const labelX = splitX + 4;
+    const valueX = splitX + 30;
     
-    drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 8.5 });
-    drawCell(invoice.invoiceNumber || 'N/A', valueX, rightY, { size: 8.5 });
-    rightY += 5;
+    drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 9.5 });
+    drawCell(invoice.invoiceNumber || 'N/A', valueX, rightY, { bold: true, size: 9.5, color: [26, 58, 92] });
+    rightY += 6;
     
-    drawCell('Dated:', labelX, rightY, { bold: true, size: 8.5 });
-    drawCell(formatDate(invoice.date), valueX, rightY, { size: 8.5 });
-    rightY += 5;
+    drawCell('Dated:', labelX, rightY, { bold: true, size: 9.5 });
+    drawCell(formatDate(invoice.date), valueX, rightY, { size: 9.5 });
+    rightY += 6;
     
-    drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 8.5 });
-    rightY += 4;
-    drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 8.5 });
-    rightY += 5;
+    drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 9.5 });
+    drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 9.5 });
+    rightY += 6;
     
     if (invoice.lpoNumber) {
-        drawCell('LPO No.:', labelX, rightY, { bold: true, size: 8.5 });
-        drawCell(invoice.lpoNumber, valueX, rightY, { size: 8.5 });
+        drawCell('LPO No.:', labelX, rightY, { bold: true, size: 9.5 });
+        drawCell(invoice.lpoNumber, valueX, rightY, { size: 9.5 });
     }
     
-    // Draw box borders
     vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH);
     y = buyerBoxTop + buyerBoxH;
     hLine(y);
@@ -173,313 +143,247 @@ function generateInvoicePDF(invoiceId, preview = false) {
     // ROW 5: PROJECT (Optional)
     // ═══════════════════════════════════════════════════
     if (invoice.projectName) {
-        y += 4;
-        drawCell('Project:', M + 3, y + 1, { bold: true, size: 8.5 });
-        drawCell(invoice.projectName, M + 20, y + 1, { size: 8.5 });
+        y += 5;
+        drawCell('Project:', M + 3, y, { bold: true, size: 9.5 });
+        drawCell(invoice.projectName, M + 22, y, { size: 9.5 });
         y += 4;
         hLine(y);
     }
 
     // ═══════════════════════════════════════════════════
-    // ROW 6: ITEMS TABLE
+    // ROW 6: ITEMS TABLE (RECALCULATED WIDTHS FOR NO OVERLAP)
     // ═══════════════════════════════════════════════════
-    
-    // Define column widths that ADD UP to exactly W (190)
-    // Sl(10) + Particulars(90) + Qty(20) + Unit(20) + Rate(25) + Amount(25) = 190
+    // Total W = 190. Splitting correctly:
     const col = {
-        sl:     { x: M,          w: 10, align: 'center' },
-        desc:   { x: M + 10,     w: 90, align: 'left'   },
-        qty:    { x: M + 100,    w: 20, align: 'center' },
-        unit:   { x: M + 120,    w: 20, align: 'center' },
-        rate:   { x: M + 140,    w: 25, align: 'right'  },
-        amount: { x: M + 165,    w: 25, align: 'right'  }
+        sl:     { x: M,          w: 12 },
+        desc:   { x: M + 12,     w: 78 },
+        qty:    { x: M + 90,     w: 15 },
+        unit:   { x: M + 105,    w: 20 },
+        rate:   { x: M + 125,    w: 25 },
+        amount: { x: M + 150,    w: 40 } // Increased Amount width to 40mm!
     };
     
-    // Table Header
     const headerTop = y;
-    const headerH = 8;
+    doc.setFillColor(235, 235, 235);
+    doc.rect(M, y, W, 9, 'F');
     
-    // Header background
-    doc.setFillColor(230, 230, 230);
-    doc.rect(M, y, W, headerH, 'F');
+    // Headers
+    drawCell('Sl No.', col.sl.x + col.sl.w/2, y + 6, { bold: true, size: 9, align: 'center' });
+    drawCell('Particulars', col.desc.x + 5, y + 6, { bold: true, size: 9 });
+    drawCell('Qty', col.qty.x + col.qty.w/2, y + 6, { bold: true, size: 9, align: 'center' });
+    drawCell('Unit', col.unit.x + col.unit.w/2, y + 6, { bold: true, size: 9, align: 'center' });
+    drawCell('Rate', col.rate.x + col.rate.w/2, y + 6, { bold: true, size: 9, align: 'center' });
+    drawCell('Amount (AED)', col.amount.x + col.amount.w - 3, y + 6, { bold: true, size: 9, align: 'right' });
     
-    // Header text
-    drawCell('Sl No.', col.sl.x + col.sl.w/2, y + 5, { bold: true, size: 8, align: 'center' });
-    drawCell('Particulars', col.desc.x + col.desc.w/2, y + 5, { bold: true, size: 8, align: 'center' });
-    drawCell('Qty', col.qty.x + col.qty.w/2, y + 5, { bold: true, size: 8, align: 'center' });
-    drawCell('Unit', col.unit.x + col.unit.w/2, y + 5, { bold: true, size: 8, align: 'center' });
-    drawCell('Rate', col.rate.x + col.rate.w/2, y + 5, { bold: true, size: 8, align: 'center' });
-    drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 5, { bold: true, size: 8, align: 'right' });
-    
-    y += headerH;
+    y += 9;
     hLine(y);
     
-    // Vertical lines for header
     vLine(col.desc.x, headerTop, y);
     vLine(col.qty.x, headerTop, y);
     vLine(col.unit.x, headerTop, y);
     vLine(col.rate.x, headerTop, y);
     vLine(col.amount.x, headerTop, y);
     
-    // Item Rows
     const itemsStartY = y;
     invoice.items.forEach((item, idx) => {
-        const descLines = doc.splitTextToSize(item.description || 'N/A', col.desc.w - 4);
-        const rowH = Math.max(7, descLines.length * 4 + 3);
+        const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
+        const rowH = Math.max(8, descLines.length * 5 + 3);
         const rowTop = y;
         
-        // Sl No
-        drawCell(String(idx + 1), col.sl.x + col.sl.w/2, y + 4.5, { size: 8.5, align: 'center' });
+        drawCell(String(idx + 1), col.sl.x + col.sl.w/2, y + 5, { size: 9, align: 'center' });
         
-        // Description
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.text(descLines[0] || '', col.desc.x + 2, y + 4.5);
+        doc.setFontSize(9.5);
+        doc.text(descLines[0] || '', col.desc.x + 2, y + 5);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.5);
         for (let i = 1; i < descLines.length; i++) {
-            doc.text(descLines[i], col.desc.x + 2, y + 4.5 + (i * 3.5));
+            doc.text(descLines[i], col.desc.x + 2, y + 5 + (i * 4.5));
         }
         
-        // Qty
-        drawCell(formatNum(item.qty), col.qty.x + col.qty.w/2, y + 4.5, { size: 8.5, align: 'center' });
-        
-        // Unit
-        drawCell(item.unit || 'Nos', col.unit.x + col.unit.w/2, y + 4.5, { size: 8.5, align: 'center' });
-        
-        // Rate
-        drawCell(formatNum(item.rate), col.rate.x + col.rate.w - 2, y + 4.5, { size: 8.5, align: 'right' });
-        
-        // Amount
-        drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 2, y + 4.5, { size: 8.5, align: 'right' });
+        drawCell(formatNum(item.qty), col.qty.x + col.qty.w/2, y + 5, { size: 9.5, align: 'center' });
+        drawCell(item.unit || 'Nos', col.unit.x + col.unit.w/2, y + 5, { size: 9.5, align: 'center' });
+        drawCell(formatNum(item.rate), col.rate.x + col.rate.w - 3, y + 5, { size: 9.5, align: 'right' });
+        drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 3, y + 5, { bold: true, size: 9.5, align: 'right' });
         
         y += rowH;
-        
-        // Row bottom line
-        vLine(col.desc.x, rowTop, y);
-        vLine(col.qty.x, rowTop, y);
-        vLine(col.unit.x, rowTop, y);
-        vLine(col.rate.x, rowTop, y);
-        vLine(col.amount.x, rowTop, y);
+        vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
     
-    // Empty rows to fill space (min 4 rows worth of empty space)
-    const minTableHeight = 40;
-    const currentTableHeight = y - itemsStartY;
-    if (currentTableHeight < minTableHeight) {
-        const emptySpace = minTableHeight - currentTableHeight;
-        // Draw vertical lines in empty space
-        vLine(col.desc.x, y, y + emptySpace);
-        vLine(col.qty.x, y, y + emptySpace);
-        vLine(col.unit.x, y, y + emptySpace);
-        vLine(col.rate.x, y, y + emptySpace);
-        vLine(col.amount.x, y, y + emptySpace);
+    // Fill empty space if table is too short
+    const minTableHeight = 45;
+    if ((y - itemsStartY) < minTableHeight) {
+        const emptySpace = minTableHeight - (y - itemsStartY);
+        vLine(col.desc.x, y, y + emptySpace); vLine(col.qty.x, y, y + emptySpace); vLine(col.unit.x, y, y + emptySpace); vLine(col.rate.x, y, y + emptySpace); vLine(col.amount.x, y, y + emptySpace);
         y += emptySpace;
     }
-    
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 7: TOTALS SECTION (Sub Total, VAT, Round Off)
+    // ROW 7: TOTALS SECTION (NO OVERLAPS)
     // ═══════════════════════════════════════════════════
     const totalsTop = y;
+    y += 5;
     
-    y += 4;
+    const labelAlign = col.amount.x - 3; // Right-aligned inside Rate column
+    const valueAlign = col.amount.x + col.amount.w - 3; // Right-aligned inside Amount column
     
-    // Sub Total
-    drawCell('Sub Total', col.rate.x + col.rate.w - 2, y, { bold: true, size: 9, align: 'right' });
-    drawCell(formatNum(invoice.subTotal), col.amount.x + col.amount.w - 2, y, { bold: true, size: 9, align: 'right' });
-    y += 4;
+    drawCell('Sub Total', labelAlign, y, { bold: true, size: 10, align: 'right' });
+    drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 10, align: 'right' });
+    y += 5;
     
-    // Discount
     if (invoice.discount > 0) {
-        drawCell('Discount', col.rate.x + col.rate.w - 2, y, { size: 9, align: 'right' });
-        drawCell('- ' + formatNum(invoice.discount), col.amount.x + col.amount.w - 2, y, { size: 9, align: 'right' });
-        y += 4;
+        drawCell('Discount', labelAlign, y, { bold: true, size: 10, align: 'right' });
+        drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 10, align: 'right' });
+        y += 5;
     }
     
-    // VAT
     if (invoice.vatEnabled) {
-        drawCell(`OUTPUT VAT @ ${invoice.vatRate}%`, col.rate.x + col.rate.w - 2, y, { bold: true, size: 9, align: 'right' });
-        drawCell(formatNum(invoice.vatAmount), col.amount.x + col.amount.w - 2, y, { bold: true, size: 9, align: 'right' });
-        y += 4;
+        drawCell(`OUTPUT VAT @ ${invoice.vatRate}%`, labelAlign, y, { bold: true, size: 10, align: 'right' });
+        drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 10, align: 'right' });
+        y += 5;
     }
     
-    // Round Off
     if (invoice.roundOff > 0) {
-        drawCell('Round Off', col.rate.x + col.rate.w - 2, y, { size: 9, align: 'right' });
+        drawCell('Round Off', labelAlign, y, { size: 10, align: 'right' });
         const sign = invoice.roundOffType === 'add' ? '(+)' : '(-)';
-        drawCell(`${sign} ${formatNum(invoice.roundOff)}`, col.amount.x + col.amount.w - 2, y, { size: 9, align: 'right' });
-        y += 4;
+        drawCell(`${sign} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 10, align: 'right' });
+        y += 5;
     }
     
     y += 1;
-    
-    // Vertical lines for totals section
-    vLine(col.rate.x, totalsTop, y);
-    vLine(col.amount.x, totalsTop, y);
-    
+    vLine(col.amount.x, totalsTop, y); // Separator between Labels & Values
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 8: GRAND TOTAL (Full width row)
+    // ROW 8: GRAND TOTAL
     // ═══════════════════════════════════════════════════
+    doc.setFillColor(245, 248, 250); // Light blue background for Grand Total
+    doc.rect(M, y, W, 10, 'F');
+    
+    y += 6.5;
+    drawCell('GRAND TOTAL', labelAlign, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
+    drawCell(`AED ${formatNum(invoice.grandTotal)}`, valueAlign, y, { bold: true, size: 13, align: 'right', color: [26, 58, 92] });
+    
+    y += 3.5;
+    vLine(col.amount.x, y - 10, y); // Separator for grand total row
+    hLine(y);
+
+    // ═══════════════════════════════════════════════════
+    // ROW 9: AMOUNT IN WORDS
+    // ═══════════════════════════════════════════════════
+    y += 5;
+    drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 10 });
+    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' });
     y += 6;
-    drawCell('Total', col.rate.x + col.rate.w - 2, y, { bold: true, size: 11, align: 'right', color: [26, 58, 92] });
-    drawCell(`AED ${formatNum(invoice.grandTotal)}`, col.amount.x + col.amount.w - 2, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
+    drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10.5, color: [26, 58, 92] });
     y += 4;
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 9: AMOUNT IN WORDS + E. & O.E
-    // ═══════════════════════════════════════════════════
-    const wordsTop = y;
-    y += 5;
-    drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 8.5 });
-    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 7.5, align: 'right' });
-    y += 5;
-    drawCell(numberToWords(invoice.grandTotal), pageW/2, y, { bold: true, size: 8.5, align: 'center' });
-    y += 4;
-    hLine(y);
-
-    // ═══════════════════════════════════════════════════
-    // ROW 10: VAT ANALYSIS (Only if VAT enabled)
+    // ROW 10: VAT ANALYSIS
     // ═══════════════════════════════════════════════════
     if (invoice.vatEnabled) {
-        y += 4;
-        drawCell('VAT Analysis', pageW/2, y, { bold: true, size: 9, align: 'center' });
+        y += 5;
+        drawCell('VAT Analysis', pageW/2, y, { bold: true, size: 10, align: 'center' });
         y += 3;
         hLine(y);
         
-        // VAT Analysis Table Columns (equal 4 columns)
-        const vatColW = W / 4;
-        const vatCol = {
-            taxable:  { x: M,                  w: vatColW },
-            rate:     { x: M + vatColW,        w: vatColW },
-            vatAmt:   { x: M + 2*vatColW,      w: vatColW },
-            totalTax: { x: M + 3*vatColW,      w: vatColW }
-        };
+        const vw = W / 4;
+        const vx = [M, M+vw, M+2*vw, M+3*vw];
         
-        // Header
-        const vatHeaderTop = y;
-        doc.setFillColor(240, 240, 240);
+        doc.setFillColor(235, 235, 235);
         doc.rect(M, y, W, 7, 'F');
-        drawCell('Taxable Value', vatCol.taxable.x + vatCol.taxable.w/2, y + 4.5, { bold: true, size: 8, align: 'center' });
-        drawCell('VAT Rate', vatCol.rate.x + vatCol.rate.w/2, y + 4.5, { bold: true, size: 8, align: 'center' });
-        drawCell('VAT Amount', vatCol.vatAmt.x + vatCol.vatAmt.w/2, y + 4.5, { bold: true, size: 8, align: 'center' });
-        drawCell('Total Tax Amount', vatCol.totalTax.x + vatCol.totalTax.w/2, y + 4.5, { bold: true, size: 8, align: 'center' });
+        
+        drawCell('Taxable Value', vx[0]+vw/2, y + 5, { bold: true, size: 9, align: 'center' });
+        drawCell('VAT Rate', vx[1]+vw/2, y + 5, { bold: true, size: 9, align: 'center' });
+        drawCell('VAT Amount', vx[2]+vw/2, y + 5, { bold: true, size: 9, align: 'center' });
+        drawCell('Total Tax Amount', vx[3]+vw/2, y + 5, { bold: true, size: 9, align: 'center' });
+        
         y += 7;
         hLine(y);
-        
-        // Row
         y += 5;
-        drawCell(formatNum(invoice.taxable), vatCol.taxable.x + vatCol.taxable.w/2, y, { size: 8.5, align: 'center' });
-        drawCell(`${invoice.vatRate}%`, vatCol.rate.x + vatCol.rate.w/2, y, { size: 8.5, align: 'center' });
-        drawCell(formatNum(invoice.vatAmount), vatCol.vatAmt.x + vatCol.vatAmt.w/2, y, { size: 8.5, align: 'center' });
-        drawCell(formatNum(invoice.vatAmount), vatCol.totalTax.x + vatCol.totalTax.w/2, y, { size: 8.5, align: 'center' });
+        
+        drawCell(formatNum(invoice.taxable), vx[0]+vw/2, y, { size: 9.5, align: 'center' });
+        drawCell(`${invoice.vatRate}%`, vx[1]+vw/2, y, { size: 9.5, align: 'center' });
+        drawCell(formatNum(invoice.vatAmount), vx[2]+vw/2, y, { size: 9.5, align: 'center' });
+        drawCell(formatNum(invoice.vatAmount), vx[3]+vw/2, y, { size: 9.5, align: 'center' });
+        
         y += 3;
-        
-        // Vertical lines
-        vLine(vatCol.rate.x, vatHeaderTop, y);
-        vLine(vatCol.vatAmt.x, vatHeaderTop, y);
-        vLine(vatCol.totalTax.x, vatHeaderTop, y);
-        
+        vLine(vx[1], y-15, y); vLine(vx[2], y-15, y); vLine(vx[3], y-15, y);
         hLine(y);
         
-        // Tax Amount in words
+        y += 6;
+        drawCell('Tax Amount (in words):', M + 3, y, { bold: true, size: 9.5 });
         y += 5;
-        drawCell('Tax Amount (in words):', M + 3, y, { bold: true, size: 8.5 });
-        y += 4;
-        drawCell(numberToWords(invoice.vatAmount), M + 3, y, { size: 8.5 });
-        y += 4;
+        drawCell(numberToWords(invoice.vatAmount), M + 3, y, { bold: true, size: 9.5 });
+        y += 5;
         hLine(y);
     }
 
     // ═══════════════════════════════════════════════════
-    // ROW 11: BANK DETAILS (Right side only, left is empty)
+    // ROW 11: BANK DETAILS & TERMS
     // ═══════════════════════════════════════════════════
     const bankBoxTop = y;
-    y += 5;
+    const splitBank = M + (W * 0.45); // Bank 45%, Terms 55%
     
-    const bankSplitX = M + (W * 0.5);
-    const bankLabelX = bankSplitX + 3;
-    const bankValueX = bankSplitX + 28;
+    y += 6;
+    drawCell("Company's Bank Details", splitBank + 3, y, { bold: true, size: 10 });
+    y += 6;
     
-    drawCell("Company's Bank Details", bankLabelX, y, { bold: true, size: 9 });
-    y += 5;
+    const bx = splitBank + 3;
+    const by = splitBank + 28;
     
-    drawCell('A/c Holder:', bankLabelX, y, { bold: true, size: 8 });
-    drawCell(settings.companyName, bankValueX, y, { size: 8 });
-    y += 4;
+    drawCell('A/c Holder:', bx, y, { bold: true, size: 9 });
+    drawCell(settings.companyName, by, y, { bold: true, size: 9 }); y += 5;
     
-    drawCell('Bank Name:', bankLabelX, y, { bold: true, size: 8 });
-    drawCell(settings.bankName || 'N/A', bankValueX, y, { size: 8 });
-    y += 4;
+    drawCell('Bank Name:', bx, y, { bold: true, size: 9 });
+    drawCell(settings.bankName || 'N/A', by, y, { size: 9 }); y += 5;
     
-    drawCell('A/c No.:', bankLabelX, y, { bold: true, size: 8 });
-    drawCell(settings.bankAccount || 'N/A', bankValueX, y, { size: 8 });
-    y += 4;
+    drawCell('A/c No.:', bx, y, { bold: true, size: 9 });
+    drawCell(settings.bankAccount || 'N/A', by, y, { bold: true, size: 9 }); y += 5;
     
-    drawCell('IBAN:', bankLabelX, y, { bold: true, size: 8 });
-    drawCell(settings.bankIban || 'N/A', bankValueX, y, { size: 8 });
-    y += 4;
+    drawCell('IBAN:', bx, y, { bold: true, size: 9 });
+    drawCell(settings.bankIban || 'N/A', by, y, { size: 9 }); y += 5;
     
-    drawCell('Branch:', bankLabelX, y, { bold: true, size: 8 });
-    drawCell(settings.bankBranch || 'N/A', bankValueX, y, { size: 8 });
-    y += 5;
+    drawCell('Branch:', bx, y, { bold: true, size: 9 });
+    drawCell(settings.bankBranch || 'N/A', by, y, { size: 9 }); y += 6;
     
-    // Vertical line separator
-    vLine(bankSplitX, bankBoxTop, y);
-    hLine(y);
-
-    // ═══════════════════════════════════════════════════
-    // ROW 12: DECLARATION + FOR COMPANY
-    // ═══════════════════════════════════════════════════
-    const declBoxTop = y;
-    y += 4;
+    // Left side terms (goes simultaneously)
+    let termY = bankBoxTop + 6;
+    drawCell('Declaration / Terms:', M + 3, termY, { bold: true, size: 10 });
+    termY += 6;
     
-    // Left: Declaration
-    drawCell('Declaration / Terms:', M + 3, y, { bold: true, size: 8.5 });
-    let declY = y + 4;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     const notes = invoice.notes || settings.invoiceNotes || '';
-    const noteLines = doc.splitTextToSize(notes, bankSplitX - M - 6);
-    noteLines.slice(0, 5).forEach(line => {
-        doc.text(line, M + 3, declY);
-        declY += 3.5;
-    });
+    const noteLines = doc.splitTextToSize(notes, splitBank - M - 6);
+    noteLines.slice(0, 6).forEach(line => { doc.text(line, M + 3, termY); termY += 4; });
     
-    // Right: For Company
-    drawCell(`For ${settings.companyName}`, M + W - 3, y + 3, { bold: true, size: 9, align: 'right' });
-    
-    // Ensure enough space for signature
-    y = Math.max(declY + 3, y + 22);
-    
-    drawCell('Authorised Signatory', M + W - 3, y, { bold: true, size: 8.5, align: 'right' });
-    y += 4;
-    
-    // Vertical separator
-    vLine(bankSplitX, declBoxTop, y);
+    y = Math.max(y, termY);
+    vLine(splitBank, bankBoxTop, y);
     hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 13: CUSTOMER SEAL + AUTHORISED SIGNATORY
+    // ROW 12: SIGNATURES
+    // ═══════════════════════════════════════════════════
+    y += 6;
+    drawCell(`For ${settings.companyName}`, M + W - 3, y, { bold: true, size: 10, align: 'right' });
+    y += 20;
+    
+    drawCell("Customer's Seal and Signature", M + 3, y, { bold: true, size: 9 });
+    drawCell('Authorised Signatory', M + W - 3, y, { bold: true, size: 9, align: 'right' });
+    y += 4;
+    hLine(y);
+
+    // ═══════════════════════════════════════════════════
+    // ROW 13: FOOTER
     // ═══════════════════════════════════════════════════
     y += 5;
-    drawCell("Customer's Seal and Signature", M + 3, y, { bold: true, size: 8 });
-    drawCell('Authorised Signatory', M + W - 3, y, { bold: true, size: 8, align: 'right' });
-    y += 4;
-    hLine(y);
-
-    // ═══════════════════════════════════════════════════
-    // ROW 14: FOOTER
-    // ═══════════════════════════════════════════════════
-    y += 4;
-    drawCell('This is a Computer Generated Invoice', pageW/2, y, { italic: true, size: 7.5, align: 'center' });
+    drawCell('This is a Computer Generated Invoice', pageW/2, y, { italic: true, size: 8, align: 'center', color: [100,100,100] });
 
     // ─── OUTPUT ───
-    const filename = `Invoice_${(invoice.invoiceNumber || 'unknown').replace(/\//g,'-')}.pdf`;
+    const filename = `Invoice_${(invoice.invoiceNumber || 'INV').replace(/\//g,'-')}.pdf`;
     
     if (preview) {
         window.open(doc.output('bloburl'), '_blank');
