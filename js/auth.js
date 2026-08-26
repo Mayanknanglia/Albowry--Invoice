@@ -1,45 +1,69 @@
-// ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Local Authentication
+\// ═══════════════════════════════════════════════════════
+// AL BOWRY CARPENTRY LLC - Cloud Authentication
 // ═══════════════════════════════════════════════════════
 
-const DEFAULT_CREDENTIALS = {
-    email: 'admin@albowry.com',
-    password: 'admin' // Simple default password for owner
-};
-
-function checkAuth() {
+async function checkAuth() {
     const isLogged = sessionStorage.getItem('albowry_auth') === 'true';
     if (!isLogged) {
+        document.getElementById('loadingScreen').style.display = 'none';
         document.getElementById('loginPage').style.display = 'flex';
         document.getElementById('mainApp').style.display = 'none';
-        hideLoading();
     } else {
-        document.getElementById('loginPage').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'flex';
-        initializeApp(); // Calls function from app.js
+        // Start Firebase Sync Engine
+        DB.init(() => {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'flex';
+            initializeApp(); 
+        });
     }
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    // Check credentials (can be updated via settings later, stored in localStorage)
-    const storedCreds = JSON.parse(localStorage.getItem('albowry_credentials')) || DEFAULT_CREDENTIALS;
+    document.getElementById('loadingText').textContent = "Verifying Credentials...";
+    showLoading();
 
-    if (email === storedCreds.email && password === storedCreds.password) {
-        showLoading();
-        sessionStorage.setItem('albowry_auth', 'true');
-        showToast('Login Successful!', 'success');
-        
-        setTimeout(() => {
-            document.getElementById('loginPage').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'flex';
-            initializeApp();
-        }, 800);
-    } else {
-        showToast('Invalid Email or Password!', 'error');
+    try {
+        // Fetch credentials directly from Firestore
+        const docRef = await dbFirestore.collection('app_data').doc('credentials').get();
+        let validEmail = 'admin@albowry.com';
+        let validPass = 'admin';
+
+        if (docRef.exists) {
+            const data = docRef.data();
+            validEmail = data.email;
+            validPass = data.password;
+        } else {
+            // First time setup, create admin doc
+            await dbFirestore.collection('app_data').doc('credentials').set({
+                email: validEmail,
+                password: validPass
+            });
+        }
+
+        if (email === validEmail && password === validPass) {
+            sessionStorage.setItem('albowry_auth', 'true');
+            showToast('Login Successful!', 'success');
+            
+            document.getElementById('loadingText').textContent = "Syncing with Cloud...";
+            
+            // Start Engine
+            DB.init(() => {
+                document.getElementById('loginPage').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'flex';
+                initializeApp();
+            });
+        } else {
+            hideLoading();
+            showToast('Invalid Email or Password!', 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('Network Error! Cannot verify login.', 'error');
+        console.error(error);
     }
 }
 
@@ -50,11 +74,4 @@ function handleLogout() {
             window.location.reload();
         }
     });
-}
-
-function updateCredentials(newEmail, newPassword) {
-    localStorage.setItem('albowry_credentials', JSON.stringify({
-        email: newEmail,
-        password: newPassword
-    }));
 }
