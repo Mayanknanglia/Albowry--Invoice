@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Settings Module (With Signature)
+// AL BOWRY CARPENTRY LLC - Settings Module (Complete)
 // ═══════════════════════════════════════════════════════
 
 function renderSettings(container) {
@@ -71,24 +71,24 @@ function renderSettings(container) {
                     </div>
                 </div>
 
-                <!-- LOGO & SIGNATURE / STAMP -->
+                <!-- BRANDING, LOGO & STAMP -->
                 <div class="settings-section">
-                    <div class="settings-section-header">🖼️ Branding & Stamp</div>
+                    <div class="settings-section-header">🖼️ Branding & Digital Stamp</div>
                     <div class="settings-section-body">
+                        <!-- LOGO UPLOAD -->
                         <div class="form-group">
-                            <label>Company Logo</label>
-                            ${s.logoUrl ? `<img src="${s.logoUrl}" class="logo-preview" id="logoPreview">` : `<img src="" class="logo-preview" id="logoPreview" style="display:none;">`}
+                            <label>Company Logo (For Invoice Top)</label>
+                            ${s.logoUrl ? `<img src="${s.logoUrl}" class="logo-preview" id="logoPreview" style="max-width:120px; max-height:80px; object-fit:contain; border:1px solid var(--border); padding:5px; margin-bottom:8px; display:block;">` : `<img src="" class="logo-preview" id="logoPreview" style="display:none; max-width:120px; max-height:80px; object-fit:contain; border:1px solid var(--border); padding:5px; margin-bottom:8px;">`}
                             <input type="file" accept="image/*" onchange="uploadLogo(event)">
                         </div>
                         
-                        <!-- ✅ NEW SIGNATURE BOX ✅ -->
-                        <div class="form-group mt-3" style="border-top: 1px solid var(--border); padding-top: 15px;">
-                            <label>Company Stamp / Signature (For PDF)</label>
-                            ${s.signatureUrl ? `<img src="${s.signatureUrl}" class="logo-preview" id="sigPreview" style="width:150px; height:auto; border:1px solid #ccc; padding:5px;">` : `<img src="" class="logo-preview" id="sigPreview" style="display:none; width:150px; height:auto; border:1px solid #ccc; padding:5px;">`}
+                        <!-- STAMP / SIGNATURE UPLOAD -->
+                        <div class="form-group mt-3" style="border-top: 1px dashed var(--border); padding-top: 15px;">
+                            <label style="color:var(--primary); font-weight:bold;">🖋️ Company Stamp / Signature (For PDF Signature Box)</label>
+                            ${s.signatureUrl ? `<img src="${s.signatureUrl}" class="logo-preview" id="sigPreview" style="max-width:150px; max-height:90px; object-fit:contain; border:1px dashed var(--primary); padding:5px; margin-bottom:8px; display:block; background:#fff;">` : `<img src="" class="logo-preview" id="sigPreview" style="display:none; max-width:150px; max-height:90px; object-fit:contain; border:1px dashed var(--primary); padding:5px; margin-bottom:8px; background:#fff;">`}
                             <input type="file" accept="image/*" onchange="uploadSignature(event)">
-                            <div class="hint">Recommended: Transparent PNG (Without background)</div>
+                            <div class="hint">Upload PNG file with transparent background for best look</div>
                         </div>
-
                     </div>
                 </div>
 
@@ -101,7 +101,7 @@ function renderSettings(container) {
                             <input type="text" id="set_invoicePrefix" value="${s.invoicePrefix || 'ABC'}">
                         </div>
                         <div class="form-group">
-                            <label>Invoice Terms (For PDF Bank Box)</label>
+                            <label>Invoice Terms & Notes</label>
                             <textarea id="set_invoiceNotes" rows="4">${s.invoiceNotes || ''}</textarea>
                         </div>
                     </div>
@@ -126,6 +126,9 @@ function renderSettings(container) {
                 <div class="settings-section">
                     <div class="settings-section-header">💾 Data Backup & Restore</div>
                     <div class="settings-section-body">
+                        <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:12px;">
+                            Backup your data regularly. All information is stored locally in your browser.
+                        </p>
                         <div class="btn-group">
                             <button class="btn btn-success btn-sm" onclick="exportBackup()">📥 Export Backup (JSON)</button>
                             <label class="btn btn-outline btn-sm" style="margin:0;cursor:pointer;">
@@ -147,6 +150,7 @@ function renderSettings(container) {
     `;
 }
 
+// Upload Logo
 function uploadLogo(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -154,11 +158,11 @@ function uploadLogo(event) {
         document.getElementById('logoPreview').src = dataUrl;
         document.getElementById('logoPreview').style.display = 'block';
         window._newLogo = dataUrl;
-        showToast('Logo uploaded! Click Save.', 'info');
+        showToast('Logo selected! Click "Save All Settings" to apply.', 'info');
     });
 }
 
-// ✅ NEW FUNCTION TO HANDLE STAMP/SIGNATURE UPLOAD
+// Upload Signature / Stamp
 function uploadSignature(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -166,10 +170,11 @@ function uploadSignature(event) {
         document.getElementById('sigPreview').src = dataUrl;
         document.getElementById('sigPreview').style.display = 'block';
         window._newSig = dataUrl;
-        showToast('Stamp uploaded! Click Save.', 'info');
+        showToast('Stamp selected! Click "Save All Settings" to apply.', 'info');
     });
 }
 
+// Compress Image Helper
 function compressImage(file, maxSize, callback) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -177,10 +182,15 @@ function compressImage(file, maxSize, callback) {
         img.onload = () => {
             const canvas = document.createElement('canvas');
             let w = img.width, h = img.height;
-            if (w > h) { if (w > maxSize) { h *= maxSize / w; w = maxSize; } } 
-            else { if (h > maxSize) { w *= maxSize / h; h = maxSize; } }
-            canvas.width = w; canvas.height = h;
-            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            if (w > h) {
+                if (w > maxSize) { h *= maxSize / w; w = maxSize; }
+            } else {
+                if (h > maxSize) { w *= maxSize / h; h = maxSize; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
             callback(canvas.toDataURL('image/png', 0.9));
         };
         img.src = e.target.result;
@@ -188,8 +198,10 @@ function compressImage(file, maxSize, callback) {
     reader.readAsDataURL(file);
 }
 
+// Save Settings
 function saveAllSettings() {
     const settings = DB.getSettings();
+    
     settings.companyName = document.getElementById('set_companyName').value.trim();
     settings.address = document.getElementById('set_address').value.trim();
     settings.phone = document.getElementById('set_phone').value.trim();
@@ -205,20 +217,83 @@ function saveAllSettings() {
     settings.invoiceNotes = document.getElementById('set_invoiceNotes').value.trim();
 
     if (window._newLogo) settings.logoUrl = window._newLogo;
-    if (window._newSig) settings.signatureUrl = window._newSig; // ✅ SAVE SIGNATURE
+    if (window._newSig) settings.signatureUrl = window._newSig;
 
     DB.saveSettings(settings);
 
+    // Update credentials if changed
     const newEmail = document.getElementById('set_loginEmail').value.trim();
     const newPass = document.getElementById('set_loginPassword').value;
-    if (newEmail && newPass) localStorage.setItem('albowry_credentials', JSON.stringify({ email: newEmail, password: newPass }));
+    if (newEmail && newPass) {
+        localStorage.setItem('albowry_credentials', JSON.stringify({ email: newEmail, password: newPass }));
+    }
 
-    loadSidebarInfo();
+    if (typeof loadSidebarInfo === 'function') loadSidebarInfo();
     showToast('Settings saved successfully!', 'success');
     window._newLogo = null;
     window._newSig = null;
 }
 
-function exportBackup() { /* ... unchanged ... */ }
-async function importBackup(event) { /* ... unchanged ... */ }
-async function clearAllData() { /* ... unchanged ... */ }
+// Export Backup JSON
+function exportBackup() {
+    const data = {
+        settings: DB.getSettings(),
+        customers: DB.get(DB_KEYS.CUSTOMERS),
+        suppliers: DB.get(DB_KEYS.SUPPLIERS),
+        invoices: DB.get(DB_KEYS.INVOICES),
+        quotations: DB.get(DB_KEYS.QUOTATIONS),
+        purchases: DB.get(DB_KEYS.PURCHASES),
+        invCounter: localStorage.getItem(DB_KEYS.INV_COUNTER),
+        quoCounter: localStorage.getItem(DB_KEYS.QUO_COUNTER),
+        credentials: JSON.parse(localStorage.getItem('albowry_credentials') || 'null'),
+        exportDate: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `albowry-backup-${getTodayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded!', 'success');
+}
+
+// Import Backup JSON
+async function importBackup(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const confirmed = await confirmDialog('This will REPLACE all your current data. Continue?');
+    if (!confirmed) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.settings) DB.saveSettings(data.settings);
+            if (data.customers) DB.set(DB_KEYS.CUSTOMERS, data.customers);
+            if (data.suppliers) DB.set(DB_KEYS.SUPPLIERS, data.suppliers);
+            if (data.invoices) DB.set(DB_KEYS.INVOICES, data.invoices);
+            if (data.quotations) DB.set(DB_KEYS.QUOTATIONS, data.quotations);
+            if (data.purchases) DB.set(DB_KEYS.PURCHASES, data.purchases);
+            if (data.invCounter) localStorage.setItem(DB_KEYS.INV_COUNTER, data.invCounter);
+            if (data.quoCounter) localStorage.setItem(DB_KEYS.QUO_COUNTER, data.quoCounter);
+            if (data.credentials) localStorage.setItem('albowry_credentials', JSON.stringify(data.credentials));
+            showToast('Backup restored successfully!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (err) {
+            showToast('Invalid backup file!', 'error');
+        }
+    };
+    reader.readAsText(file);
+}
+
+// Clear All Data
+async function clearAllData() {
+    const confirmed = await confirmDialog('⚠️ DANGER! This will delete ALL data permanently. Are you sure?');
+    if (!confirmed) return;
+
+    Object.values(DB_KEYS).forEach(key => localStorage.removeItem(key));
+    localStorage.removeItem('albowry_credentials');
+    showToast('All data cleared!', 'warning');
+    setTimeout(() => window.location.reload(), 1000);
+}
