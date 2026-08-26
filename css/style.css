@@ -1542,3 +1542,164 @@ table .amount {
 .sidebar-overlay.show {
     display: block;
 }
+/* ═══════════════════════════════════════════════════════
+   📱 SUPERCHARGED MOBILE RESPONSIVE VIEW (APP MODE)
+   ═══════════════════════════════════════════════════════ */
+
+/* --- SIDEBAR OVERLAY FOR MOBILE --- */
+.sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 95;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (max-width: 900px) {
+    /* ── SIDEBAR SLIDE EFFECT ── */
+    .sidebar {
+        transform: translateX(-100%);
+        z-index: 100;
+        width: 260px;
+        box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        width: 100vw;
+    }
+
+    .menu-toggle {
+        display: block !important;
+    }
+    
+    .page-container {
+        padding: 12px;
+    }
+
+    /* ── DASHBOARD STATS ── */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+    }
+    .stat-card {
+        padding: 15px;
+    }
+    .stat-value {
+        font-size: 1.2rem;
+    }
+
+    /* ── TABLES (HORIZONTAL SCROLL) ── */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -15px;
+        padding: 0 15px;
+        border-radius: 0;
+    }
+    table th, table td {
+        white-space: nowrap;
+        padding: 10px 12px;
+        font-size: 0.85rem;
+    }
+
+    /* ── MODALS (POPUPS) ── */
+    .modal {
+        margin: 10px auto;
+        max-width: calc(100% - 20px) !important;
+        max-height: calc(100vh - 20px);
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-body {
+        padding: 15px;
+        overflow-y: auto;
+    }
+    .modal-header, .modal-footer {
+        padding: 12px 15px;
+    }
+
+    /* ── FORMS (INVOICE, CUSTOMER, ETC) ── */
+    .form-row, .form-row-3, .form-row-4 {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    /* ── INVOICE ITEM BUILDER (CRITICAL FOR MOBILE) ── */
+    .item-row {
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    .item-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important; /* Makes Qty/Unit side-by-side */
+        gap: 10px;
+    }
+    
+    .item-grid .form-group:last-child {
+        grid-column: 1 / -1; /* Amount field takes full width on mobile */
+    }
+
+    .totals-box {
+        min-width: 100%;
+        width: 100%;
+        padding: 12px;
+        margin-top: 15px;
+    }
+    
+    /* ── SETTINGS PAGE ── */
+    .settings-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* ── FILTERS BAR ── */
+    .filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    .search-box {
+        width: 100%;
+    }
+    .filter-select {
+        width: 100%;
+    }
+    
+    /* ── INSTALL BUTTON ADJUSTMENT ── */
+    #installAppBtn {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+}
+
+/* ── FOR VERY SMALL PHONES (iPhone SE, etc) ── */
+@media (max-width: 400px) {
+    .stats-grid {
+        grid-template-columns: 1fr !important; /* Stack stats one by one */
+    }
+    .topbar h1 {
+        font-size: 1rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .item-grid {
+        grid-template-columns: 1fr !important; /* Stack every item field */
+    }
+}
