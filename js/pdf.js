@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Invoice PDF Generator (FINAL MAX)
-// Contact in Footer Box, Computer text outside box, Clean Layout
+// Contact in Footer Box, Computer text outside, Auto-Stamp!
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -11,6 +11,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = 210;
+    const pageH = 297;
     
     const M = 10; // Margin
     const W = pageW - 2*M; // Usable width = 190
@@ -28,7 +29,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
     
     const splitX = col.qty.x; // MASTER LOCK LINE
 
-    // ─── HELPERS (DARK THICK LINES) ───
     const drawCell = (text, x, y, opts = {}) => {
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
         doc.setFontSize(opts.size || 9.5);
@@ -37,30 +37,18 @@ function generateInvoicePDF(invoiceId, preview = false) {
     };
 
     const LINE_W = 0.4; 
-
-    const hLine = (yPos) => { 
-        doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); 
-    };
-    
-    const vLine = (x, y1, y2) => { 
-        doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); 
-    };
+    const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
+    const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
 
     // ═══════════════════════════════════════════════════
-    // ROW 1: TITLE "TAX INVOICE"
+    // ROW 1 & 2: TITLE, LOGO, COMPANY DETAILS
     // ═══════════════════════════════════════════════════
     drawCell('TAX INVOICE', pageW/2, y + 7, { bold: true, size: 14, align: 'center' });
-    y += 10;
-    hLine(y);
+    y += 10; hLine(y);
 
-    // ═══════════════════════════════════════════════════
-    // ROW 2: LOGO & COMPANY DETAILS
-    // ═══════════════════════════════════════════════════
     y += 4;
     if (settings.logoUrl) { 
-        try { 
-            doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 17.5, y, 35, 25); 
-        } catch(e) {} 
+        try { doc.addImage(settings.logoUrl, 'PNG', pageW/2 - 17.5, y, 35, 25); } catch(e) {} 
     }
     y += 28;
 
@@ -70,14 +58,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
     const addrLines = doc.splitTextToSize(settings.address, 130);
     addrLines.forEach(line => { doc.text(line, pageW/2, y, { align: 'center' }); y += 4.5; });
-    doc.text('United Arab Emirates', pageW/2, y, { align: 'center' }); 
-    y += 5.5;
+    doc.text('United Arab Emirates', pageW/2, y, { align: 'center' }); y += 5.5;
 
     drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW/2, y, { bold: true, size: 10.5, align: 'center' });
-    y += 5; 
-    hLine(y);
-
-    // (Top contact row removed completely from here as requested)
+    y += 5; hLine(y);
 
     // ═══════════════════════════════════════════════════
     // ROW 3: BUYER & INVOICE DETAILS
@@ -85,7 +69,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const buyerBoxTop = y;
     const buyerBoxH = 42; 
     
-    // Left: Buyer
     let leftY = y + 7;
     drawCell('Buyer (Bill to):', M + 3, leftY, { bold: true, size: 10.5 }); leftY += 6;
     drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 12.5 }); leftY += 6;
@@ -96,10 +79,8 @@ function generateInvoicePDF(invoiceId, preview = false) {
     if (invoice.customerPhone) { doc.text(`Phone: ${invoice.customerPhone}`, M + 3, leftY); leftY += 4.5; }
     if (invoice.customerTRN) { drawCell(`TRN: ${invoice.customerTRN}`, M + 3, leftY, { bold: true }); }
     
-    // Right: Invoice Info
     let rightY = y + 7;
-    const labelX = splitX + 4;
-    const valueX = splitX + 32;
+    const labelX = splitX + 4; const valueX = splitX + 32;
     
     drawCell('Invoice No.:', labelX, rightY, { bold: true }); drawCell(invoice.invoiceNumber, valueX, rightY, { bold: true, color: [26, 58, 92] }); rightY += 6.5;
     drawCell('Dated:', labelX, rightY, { bold: true }); drawCell(formatDate(invoice.date), valueX, rightY); rightY += 6.5;
@@ -113,8 +94,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     // ROW 4: PROJECT
     // ═══════════════════════════════════════════════════
     if (invoice.projectName) {
-        y += 5.5;
-        drawCell('Project:', M + 3, y, { bold: true, size: 10 }); drawCell(invoice.projectName, M + 22, y, { size: 10 });
+        y += 5.5; drawCell('Project:', M + 3, y, { bold: true, size: 10 }); drawCell(invoice.projectName, M + 22, y, { size: 10 });
         y += 4.5; hLine(y);
     }
 
@@ -130,7 +110,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('Unit', col.unit.x + col.unit.w/2, y + 5.5, { bold: true, align: 'center' });
     drawCell('Rate', col.rate.x + col.rate.w/2, y + 5.5, { bold: true, align: 'center' });
     drawCell('Amount (AED)', col.amount.x + col.amount.w - 3, y + 5.5, { bold: true, align: 'right' });
-    
     y += 8; hLine(y);
     
     vLine(col.desc.x, headerTop, y); vLine(col.qty.x, headerTop, y); vLine(col.unit.x, headerTop, y); vLine(col.rate.x, headerTop, y); vLine(col.amount.x, headerTop, y);
@@ -217,7 +196,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 4.5; hLine(y);
 
     // ═══════════════════════════════════════════════════
-    // ROW 9: BANK DETAILS & SIGNATURE
+    // ROW 9: BANK DETAILS (LEFT) & SIGNATURE STAMP (RIGHT)
     // ═══════════════════════════════════════════════════
     const bottomBoxTop = y;
     
@@ -230,10 +209,24 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('A/c No.:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankAccount || '-', by, y, { bold: true, size: 9.5 }); y += 5;
     drawCell('IBAN:', bx, y, { bold: true, size: 9.5 }); drawCell(settings.bankIban || '-', by, y, { size: 9.5 }); y += 5;
 
-    const boxBottomY = Math.max(y + 2, bottomBoxTop + 38);
+    const boxBottomY = Math.max(y + 2, bottomBoxTop + 40);
 
-    // Right Box: For Company Name (Top) + Signature (Bottom)
+    // ✅ RIGHT SIDE: STAMP & SIGNATURE RENDER ✅
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 7, { bold: true, size: 10.5, align: 'right' });
+    
+    if (settings.signatureUrl) {
+        try {
+            // Calculating center of the right box to place the stamp perfectly
+            const rightBoxW = (M + W) - splitX;
+            const sigW = 40; // Signature Width (40mm)
+            const sigH = 20; // Signature Height (20mm)
+            const sigX = splitX + (rightBoxW / 2) - (sigW / 2);
+            const sigY = bottomBoxTop + 10;
+            
+            doc.addImage(settings.signatureUrl, 'PNG', sigX, sigY, sigW, sigH);
+        } catch(e) {}
+    }
+
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 4, { bold: true, size: 10, align: 'right' });
 
     vLine(splitX, bottomBoxTop, boxBottomY);
@@ -251,7 +244,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 4; 
     hLine(y);
     
-    // Absolute bottom of the inner content
     const finalY = y;
 
     // ═══════════════════════════════════════════════════
@@ -259,13 +251,12 @@ function generateInvoicePDF(invoiceId, preview = false) {
     // ═══════════════════════════════════════════════════
     doc.setDrawColor(0);
     doc.setLineWidth(0.6); 
-    // This perfectly wraps the content. No extra blank space below!
-    doc.rect(M, M, W, finalY - M, 'S');
+    doc.rect(M, M, W, finalY - M, 'S'); // Box is strictly bounded
 
     // ═══════════════════════════════════════════════════
     // ROW 11: COMPUTER GENERATED TEXT (OUTSIDE BORDER)
     // ═══════════════════════════════════════════════════
-    // Added 6mm space below the outer border
+    // Placing it freely below the invoice box
     drawCell('This is a Computer Generated Invoice', pageW/2, finalY + 6, { italic: true, size: 8.5, align: 'center', color: [100,100,100] });
 
     // ─── OUTPUT ───
