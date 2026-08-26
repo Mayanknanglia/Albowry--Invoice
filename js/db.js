@@ -28,7 +28,8 @@ const DEFAULT_SETTINGS = {
     vatRate: 5,
     logoUrl: 'public/logo.png',
     profilePhoto: '',
-    invoiceNotes: '1. All customized carpentry works are non-refundable once started.\n2. 50% advance payment required for approval.\n3. Balance upon completion.',
+    signatureUrl: '', // ✅ SIGNATURE/STAMP ADDED HERE
+    invoiceNotes: '',
     quotationNotes: '1. Quotation valid for 15 days.\n2. LPO required to initiate work.'
 };
 
@@ -48,9 +49,8 @@ const DB = {
             this.set(DB_KEYS.SETTINGS, DEFAULT_SETTINGS);
             return DEFAULT_SETTINGS;
         }
-        // Merge with defaults to ensure no missing keys
         const stored = JSON.parse(data);
-        return { ...DEFAULT_SETTINGS, ...stored };
+        return { ...DEFAULT_SETTINGS, ...stored }; // Merges new keys automatically
     },
 
     saveSettings(settings) {
