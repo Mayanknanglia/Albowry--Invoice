@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Invoice PDF Generator (FINAL)
-// Big Stamp fills right box — NO extra empty space
+// Stamp: width OK, height increased (no stretch)
+// Box: compact — no extra empty space
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -25,6 +26,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
         amount: { x: M + 152,    w: 38 }
     };
     const splitX = col.qty.x;
+
+    // ── STAMP SIZE (yahan se change karo) ──
+    const SIG_W = 58;  // width — theek hai
+    const SIG_H = 36;  // height — badha diya (stretch hatane ke liye)
 
     const drawCell = (text, x, y, opts = {}) => {
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
@@ -272,10 +277,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 4.5;
     hLine(y);
 
-    // ═══ BANK (LEFT) + BIG STAMP (RIGHT) — COMPACT HEIGHT ═══
+    // ═══ BANK (LEFT) + STAMP (RIGHT) — COMPACT ═══
     const bottomBoxTop = y;
 
-    // Left: Bank details
+    // Left bank
     let bankY = y + 5;
     drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 10.5 });
     bankY += 5.5;
@@ -293,30 +298,25 @@ function generateInvoicePDF(invoiceId, preview = false) {
     bankY += 4.5;
     drawCell('IBAN:', bx, bankY, { bold: true, size: 9.5 });
     drawCell(settings.bankIban || '-', by, bankY, { size: 9.5 });
-    bankY += 3;
+    bankY += 2;
 
-    // Box height = bank content only (NO forced empty space)
-    const boxBottomY = Math.max(bankY + 2, bottomBoxTop + 36);
+    // Box height = only what's needed for bank OR stamp (no extra padding)
+    // Stamp needs: 5 (title) + SIG_H + 5 (signatory) ≈ 5+36+5 = 46 from top
+    const stampNeededH = 5 + SIG_H + 6;
+    const boxBottomY = Math.max(bankY + 2, bottomBoxTop + stampNeededH);
 
-    // Right: Company name
+    // Right: company name
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 5, {
         bold: true, size: 10, align: 'right'
     });
 
-    // ── BIG STAMP — fills right box (no extra box height) ──
+    // Stamp — natural aspect (taller, not stretched)
     if (settings.signatureUrl) {
         try {
             const rightBoxW = (M + W) - splitX;
-            const rightBoxH = boxBottomY - bottomBoxTop;
-
-            // Large stamp that fills available right area
-            // Leave ~5mm top for company name, ~5mm bottom for "Authorised Signatory"
-            const sigW = 70;  // BIG width
-            const sigH = Math.min(40, rightBoxH - 40); // fill height of box
-            const sigX = splitX + (rightBoxW - sigW) / 2;
-            const sigY = bottomBoxTop + 7;
-
-            doc.addImage(settings.signatureUrl, 'PNG', sigX, sigY, sigW, sigH);
+            const sigX = splitX + (rightBoxW - SIG_W) / 2;
+            const sigY = bottomBoxTop + 6;
+            doc.addImage(settings.signatureUrl, 'PNG', sigX, sigY, SIG_W, SIG_H);
         } catch (e) {}
     }
 
@@ -328,7 +328,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     hLine(boxBottomY);
     y = boxBottomY;
 
-    // ═══ CONTACT FOOTER (INSIDE BOX) ═══
+    // ═══ CONTACT FOOTER ═══
     y += 5;
     const cw = W / 3;
     drawCell('Contact:', M + 3, y, { bold: true, size: 9.5 });
@@ -342,17 +342,16 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
     const finalY = y;
 
-    // Outer border (compact)
+    // Outer border
     doc.setDrawColor(0);
     doc.setLineWidth(0.6);
     doc.rect(M, M, W, finalY - M, 'S');
 
-    // Computer generated — OUTSIDE box
+    // Outside box
     drawCell('This is a Computer Generated Invoice', pageW / 2, finalY + 6, {
         italic: true, size: 8.5, align: 'center', color: [100, 100, 100]
     });
 
-    // Output
     const filename = `Invoice_${(invoice.invoiceNumber || 'INV').replace(/\//g, '-')}.pdf`;
     if (preview) {
         window.open(doc.output('bloburl'), '_blank');
