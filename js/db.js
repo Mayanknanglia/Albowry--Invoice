@@ -1,18 +1,29 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - LocalStorage Database
+// AL BOWRY CARPENTRY LLC - Firebase Sync Database
+// Real-time Cloud Sync + Offline Persistence
 // ═══════════════════════════════════════════════════════
 
-const DB_KEYS = {
-    SETTINGS: 'albowry_settings',
-    CUSTOMERS: 'albowry_customers',
-    SUPPLIERS: 'albowry_suppliers',
-    INVOICES: 'albowry_invoices',
-    QUOTATIONS: 'albowry_quotations',
-    PURCHASES: 'albowry_purchases',
-    INV_COUNTER: 'albowry_inv_counter',
-    QUO_COUNTER: 'albowry_quo_counter'
+// 1. FIREBASE CONFIGURATION
+const firebaseConfig = {
+    apiKey: "AIzaSyBUwJpcQUvVFWb-CVKafaX3P9H-lpGxKz8",
+    authDomain: "albowry-invoice.firebaseapp.com",
+    projectId: "albowry-invoice",
+    storageBucket: "albowry-invoice.firebasestorage.app",
+    messagingSenderId: "193429023835",
+    appId: "1:193429023835:web:d066dd452474df6704e37e",
+    measurementId: "G-ZRKR6KV0NV"
 };
 
+// 2. INITIALIZE FIREBASE
+firebase.initializeApp(firebaseConfig);
+const dbFirestore = firebase.firestore();
+
+// Enable Offline Mode
+dbFirestore.enablePersistence().catch(err => {
+    console.error("Offline persistence error:", err.code);
+});
+
+// 3. DEFAULT SETTINGS
 const DEFAULT_SETTINGS = {
     companyName: 'Al Bowry Carpentry LLC',
     address: 'Sharjah, United Arab Emirates',
@@ -27,71 +38,106 @@ const DEFAULT_SETTINGS = {
     invoicePrefix: 'ABC',
     vatRate: 5,
     logoUrl: 'public/logo.png',
-    profilePhoto: '',
-    signatureUrl: '', // ✅ SIGNATURE/STAMP ADDED HERE
+    signatureUrl: '',
     invoiceNotes: '',
     quotationNotes: '1. Quotation valid for 15 days.\n2. LPO required to initiate work.'
 };
 
+// 4. MAIN DB ENGINE
+const DB_KEYS = {
+    CUSTOMERS: 'customers',
+    SUPPLIERS: 'suppliers',
+    INVOICES: 'invoices',
+    QUOTATIONS: 'quotations',
+    PURCHASES: 'purchases'
+};
+
 const DB = {
-    get(key) {
-        const data = localStorage.getItem(key);
-        return data ? JSON.parse(data) : [];
+    state: {
+        settings: null,
+        customers: [],
+        suppliers: [],
+        invoices: [],
+        quotations: [],
+        purchases: []
+    },
+    
+    isLoaded: false,
+
+    // Boot up and listen to real-time changes
+    init(callback) {
+        let loadedCollections = 0;
+        const totalToLoad = 6; // Settings + 5 Collections
+
+        const checkReady = () => {
+            loadedCollections++;
+            if (loadedCollections >= totalToLoad && !this.isLoaded) {
+                this.isLoaded = true;
+                callback();
+            } else if (this.isLoaded && typeof renderCurrentPage === 'function') {
+                // If already loaded and background update happens, re-render UI!
+                renderCurrentPage();
+            }
+        };
+
+        // 1. Listen to Settings
+        dbFirestore.collection('app_data').doc('settings').onSnapshot(doc => {
+            if (doc.exists) this.state.settings = { ...DEFAULT_SETTINGS, ...doc.data() };
+            else this.state.settings = DEFAULT_SETTINGS;
+            checkReady();
+        });
+
+        // 2. Listen to all Arrays (Invoices, Customers, etc.)
+        Object.values(DB_KEYS).forEach(collectionName => {
+            dbFirestore.collection(collectionName).onSnapshot(snapshot => {
+                const data = [];
+                snapshot.forEach(doc => data.push(doc.data()));
+                this.state[collectionName] = data;
+                checkReady();
+            });
+        });
     },
 
-    set(key, data) {
-        localStorage.setItem(key, JSON.stringify(data));
-    },
-
+    // ─── READERS (Synchronous, instant UI) ───
     getSettings() {
-        const data = localStorage.getItem(DB_KEYS.SETTINGS);
-        if (!data) {
-            this.set(DB_KEYS.SETTINGS, DEFAULT_SETTINGS);
-            return DEFAULT_SETTINGS;
-        }
-        const stored = JSON.parse(data);
-        return { ...DEFAULT_SETTINGS, ...stored }; // Merges new keys automatically
+        return this.state.settings || DEFAULT_SETTINGS;
     },
 
-    saveSettings(settings) {
-        this.set(DB_KEYS.SETTINGS, settings);
+    get(collectionKey) {
+        return this.state[collectionKey] || [];
     },
 
+    // ─── WRITERS (Syncs to Cloud) ───
+    async saveSettings(newSettings) {
+        this.state.settings = newSettings;
+        showToast('Syncing to cloud...', 'info');
+        await dbFirestore.collection('app_data').doc('settings').set(newSettings);
+        showToast('Settings Saved!', 'success');
+    },
+
+    async saveItem(collectionKey, item) {
+        showToast('Saving to cloud...', 'info');
+        await dbFirestore.collection(collectionKey).doc(item.id).set(item);
+    },
+
+    async deleteItem(collectionKey, itemId) {
+        showToast('Deleting from cloud...', 'info');
+        await dbFirestore.collection(collectionKey).doc(itemId).delete();
+    },
+
+    // ─── AUTO COUNTERS (Calculated dynamically) ───
     generateInvoiceNumber() {
-        const settings = this.getSettings();
         const year = new Date().getFullYear();
-        let counter = localStorage.getItem(DB_KEYS.INV_COUNTER) || '0';
-        counter = parseInt(counter) + 1;
-        const prefix = (settings.invoicePrefix && settings.invoicePrefix.trim() !== '') ? settings.invoicePrefix.trim() : 'ABC';
+        const yearInvoices = this.state.invoices.filter(i => i.invoiceNumber && i.invoiceNumber.includes(`-${year}-`));
+        const counter = yearInvoices.length + 1;
+        const prefix = (this.state.settings?.invoicePrefix || 'ABC').trim();
         return `${prefix}-${year}-${counter.toString().padStart(3, '0')}`;
-    },
-
-    incrementInvoiceCounter() {
-        let counter = localStorage.getItem(DB_KEYS.INV_COUNTER) || '0';
-        localStorage.setItem(DB_KEYS.INV_COUNTER, parseInt(counter) + 1);
     },
 
     generateQuotationNumber() {
         const year = new Date().getFullYear();
-        let counter = localStorage.getItem(DB_KEYS.QUO_COUNTER) || '0';
-        counter = parseInt(counter) + 1;
+        const yearQuotes = this.state.quotations.filter(q => q.quotationNumber && q.quotationNumber.includes(`-${year}-`));
+        const counter = yearQuotes.length + 1;
         return `QT-${year}-${counter.toString().padStart(3, '0')}`;
-    },
-
-    incrementQuotationCounter() {
-        let counter = localStorage.getItem(DB_KEYS.QUO_COUNTER) || '0';
-        localStorage.setItem(DB_KEYS.QUO_COUNTER, parseInt(counter) + 1);
     }
 };
-
-function initDB() {
-    if (!localStorage.getItem(DB_KEYS.SETTINGS)) {
-        DB.set(DB_KEYS.SETTINGS, DEFAULT_SETTINGS);
-    }
-    ['CUSTOMERS', 'SUPPLIERS', 'INVOICES', 'QUOTATIONS', 'PURCHASES'].forEach(key => {
-        if (!localStorage.getItem(DB_KEYS[key])) {
-            DB.set(DB_KEYS[key], []);
-        }
-    });
-}
-initDB();
