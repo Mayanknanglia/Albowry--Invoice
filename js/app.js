@@ -79,6 +79,7 @@ function navigateTo(pageId) {
 
     const titles = {
         'dashboard': 'Dashboard', 'invoices': 'Tax Invoices', 'quotations': 'Quotations',
+        'manual-invoices': 'Manual Invoices', // <-- NEW ROUTE ADDED
         'customers': 'Customer Directory', 'suppliers': 'Supplier Directory', 
         'purchases': 'Purchase Bills', 'reports': 'Business Analytics', 
         'vat-reports': 'VAT Tax Reports', 'settings': 'System Settings'
@@ -98,6 +99,7 @@ function renderPage(page, container, isSilentRender = false) {
         switch (page) {
             case 'dashboard': renderDashboard(container); break;
             case 'invoices': renderInvoices(container); break;
+            case 'manual-invoices': renderManualInvoices(container); break; // <-- NEW PAGE LINKED
             case 'quotations': renderQuotations(container); break;
             case 'customers': renderCustomers(container); break;
             case 'suppliers': renderSuppliers(container); break;
