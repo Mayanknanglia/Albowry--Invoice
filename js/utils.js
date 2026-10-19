@@ -46,6 +46,7 @@ function calculateVAT(amount) {
 function getUnitOptions() {
     return `
         <option value="Meter">Meter (m)</option>
+        <option value="Hours">Hours</option
         <option value="Sq.Meter">Sq. Meter (m²)</option>
         <option value="Sq.Ft">Sq. Feet (ft²)</option>
         <option value="R.Meter">Running Meter</option>
