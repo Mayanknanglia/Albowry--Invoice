@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Manual Invoice System
+// AL BOWRY CARPENTRY LLC - Manual Invoice System (PREMIUM UI)
 // 100% Custom & Editable Invoice Generator
 // ═══════════════════════════════════════════════════════
 
@@ -32,135 +32,180 @@ function deleteManualInvoice(id) {
 function renderManualInvoices(container) {
     const savedDocs = getSavedManualInvoices();
 
-    container.innerHTML = `
-        <div class="card mb-4" style="border-top: 4px solid var(--primary);">
-            <div class="card-header d-flex justify-content-between align-items-center" style="flex-wrap:wrap; gap:10px;">
+    // PREMIUM CUSTOM STYLES (NO BOOTSTRAP NEEDED)
+    const customStyles = `
+        <style>
+            .mi-card { background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border-top: 5px solid #1a3a5c; overflow: hidden; }
+            .mi-header { background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+            .mi-title { margin: 0; color: #1a3a5c; font-size: 1.4rem; }
+            .mi-subtitle { margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b; }
+            .mi-body { padding: 25px 20px; }
+            .mi-section-title { font-size: 1.1rem; color: #1a3a5c; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; font-weight: 600; }
+            
+            .mi-grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 25px; }
+            .mi-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+            @media (max-width: 768px) { .mi-grid-1-2, .mi-grid-2 { grid-template-columns: 1fr; } }
+            
+            .mi-form-group { display: flex; flex-direction: column; gap: 8px; }
+            .mi-label { font-weight: 600; color: #334155; font-size: 0.9rem; }
+            .mi-input { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.95rem; width: 100%; box-sizing: border-box; transition: all 0.2s; background: #fff; }
+            .mi-input:focus { outline: none; border-color: #d4a843; box-shadow: 0 0 0 3px rgba(212,168,67,0.2); }
+            textarea.mi-input { resize: vertical; line-height: 1.5; }
+            
+            .mi-table-wrapper { overflow-x: auto; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+            .mi-table { width: 100%; min-width: 900px; border-collapse: collapse; text-align: left; }
+            .mi-table th { background: #1a3a5c; color: white; padding: 12px 10px; font-weight: 500; }
+            .mi-table th input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-weight: 600; }
+            .mi-table th input:focus { background: white; color: #1a3a5c; outline: none; }
+            .mi-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+            .mi-table td input { width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 4px; box-sizing: border-box; transition: border-color 0.2s; }
+            .mi-table td input:focus { border-color: #1a3a5c; outline: none; }
+            
+            .mi-btn { padding: 9px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: opacity 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+            .mi-btn:hover { opacity: 0.9; }
+            .mi-btn-primary { background: #1a3a5c; color: white; }
+            .mi-btn-success { background: #d4a843; color: white; }
+            .mi-btn-secondary { background: #e2e8f0; color: #475569; }
+            .mi-btn-danger { background: #ef4444; color: white; padding: 6px 12px; }
+            .mi-btn-outline { background: transparent; border: 1px solid #1a3a5c; color: #1a3a5c; }
+            
+            .mi-totals-box { background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+            .mi-grand-total { font-size: 1.5rem; color: #1a3a5c; font-weight: bold; background: transparent; border: none; text-align: right; width: 100%; }
+        </style>
+    `;
+
+    container.innerHTML = customStyles + `
+        <div class="mi-card">
+            <div class="mi-header">
                 <div>
-                    <h3 style="margin:0; color:var(--primary);"><i class="fas fa-file-signature"></i> Manual Free-Form Invoice</h3>
-                    <p style="margin:3px 0 0; font-size:13px; color:#666;">Har field custom text / Heading completely change kar sakte hain.</p>
+                    <h3 class="mi-title">&#9998; Manual Free-Form Document</h3>
+                    <p class="mi-subtitle">Fully editable layout. Change headers, columns, and data directly.</p>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-secondary btn-sm" onclick="resetManualForm()"><i class="fas fa-redo"></i> Reset Form</button>
-                    <button class="btn btn-primary btn-sm" onclick="previewManualPDF()"><i class="fas fa-eye"></i> Preview PDF</button>
-                    <button class="btn btn-success btn-sm" onclick="saveAndDownloadManualPDF()"><i class="fas fa-download"></i> Save & Download PDF</button>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="mi-btn mi-btn-secondary" onclick="resetManualForm()">Reset</button>
+                    <button class="mi-btn mi-btn-primary" onclick="previewManualPDF()">Preview PDF</button>
+                    <button class="mi-btn mi-btn-success" onclick="saveAndDownloadManualPDF()">Save & Download</button>
                 </div>
             </div>
             
-            <div class="card-body">
+            <div class="mi-body">
                 <form id="manualInvoiceForm">
                     <input type="hidden" id="manualDocId" value="">
 
-                    <!-- DOCUMENT TITLE & METADATA -->
-                    <div class="row g-3 mb-3" style="background:var(--bg-light); padding:12px; border-radius:6px;">
-                        <div class="col-md-4">
-                            <label class="form-label fw-bold">Document Main Heading Title</label>
-                            <input type="text" id="mDocTitle" class="form-control" value="TAX INVOICE" placeholder="e.g. TAX INVOICE, QUOTATION, PROFORMA">
+                    <h4 class="mi-section-title">1. Document Headers</h4>
+                    <div class="mi-grid-1-2">
+                        <div class="mi-form-group">
+                            <label class="mi-label">Main Heading Title</label>
+                            <input type="text" id="mDocTitle" class="mi-input" value="TAX INVOICE" placeholder="e.g. TAX INVOICE, QUOTATION">
                         </div>
-                        <div class="col-md-8">
-                            <label class="form-label fw-bold">Project / Subject (Optional)</label>
-                            <input type="text" id="mProjectText" class="form-control" placeholder="Project: Wooden Gazebo Supply & Installation at Villa 12">
-                        </div>
-                    </div>
-
-                    <!-- BUYER & INVOICE DETAILS -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Buyer Details (Left Box - Multiline)</label>
-                            <textarea id="mBuyerText" class="form-control" rows="5" placeholder="Buyer (Bill to):&#10;Customer Name LLC&#10;Dubai, UAE&#10;Phone: +971 50 000 0000&#10;TRN: 100000000000003"></textarea>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Invoice Info / Right Box Details</label>
-                            <textarea id="mMetaText" class="form-control" rows="5" placeholder="Invoice No.: ABC-2026-MAN-001&#10;Dated: 26-Oct-2026&#10;Mode/Terms: Cash / Cheque&#10;LPO No.: LPO-88493"></textarea>
+                        <div class="mi-form-group">
+                            <label class="mi-label">Project / Subject (Optional)</label>
+                            <input type="text" id="mProjectText" class="mi-input" placeholder="Project: Wooden Gazebo Supply & Installation at Villa 12">
                         </div>
                     </div>
 
-                    <!-- TABLE HEADERS & ITEMS -->
-                    <div class="table-responsive mb-3">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <h5 style="margin:0; font-size:15px; color:var(--primary);"><i class="fas fa-list"></i> Table Columns & Items</h5>
-                            <span class="badge bg-warning text-dark" style="font-size:12px;">Column headings are also editable below!</span>
+                    <h4 class="mi-section-title">2. Buyer & Meta Information</h4>
+                    <div class="mi-grid-2">
+                        <div class="mi-form-group">
+                            <label class="mi-label">Buyer Details (Left Box)</label>
+                            <textarea id="mBuyerText" class="mi-input" rows="5" placeholder="Buyer (Bill to):&#10;Customer Name LLC&#10;Dubai, UAE&#10;Phone: +971 50 000 0000&#10;TRN: 100000000000003"></textarea>
                         </div>
-                        <table class="table table-bordered align-middle" id="manualItemsTable">
-                            <thead style="background: #f1f5f9;">
+                        <div class="mi-form-group">
+                            <label class="mi-label">Invoice Info (Right Box)</label>
+                            <textarea id="mMetaText" class="mi-input" rows="5" placeholder="Invoice No.: ABC-2026-MAN-001&#10;Dated: 26-Oct-2026&#10;Mode/Terms: Cash / Cheque&#10;LPO No.: LPO-88493"></textarea>
+                        </div>
+                    </div>
+
+                    <h4 class="mi-section-title" style="display:flex; justify-content:space-between; align-items:center;">
+                        3. Table Columns & Items
+                        <span style="font-size:0.8rem; background:#fff7ed; color:#c2410c; padding:4px 8px; border-radius:4px; border:1px solid #ffedd5;">You can edit column names directly!</span>
+                    </h4>
+                    
+                    <div class="mi-table-wrapper">
+                        <table class="mi-table" id="manualItemsTable">
+                            <thead>
                                 <tr>
-                                    <th style="width: 80px;"><input type="text" class="form-control form-control-sm text-center fw-bold" id="mH1" value="Sl No."></th>
-                                    <th><input type="text" class="form-control form-control-sm fw-bold" id="mH2" value="Particulars / Description"></th>
-                                    <th style="width: 100px;"><input type="text" class="form-control form-control-sm text-center fw-bold" id="mH3" value="Qty / Hours"></th>
-                                    <th style="width: 100px;"><input type="text" class="form-control form-control-sm text-center fw-bold" id="mH4" value="Unit"></th>
-                                    <th style="width: 120px;"><input type="text" class="form-control form-control-sm text-end fw-bold" id="mH5" value="Rate"></th>
-                                    <th style="width: 140px;"><input type="text" class="form-control form-control-sm text-end fw-bold" id="mH6" value="Amount (AED)"></th>
-                                    <th style="width: 50px; text-align:center;">Action</th>
+                                    <th style="width: 8%;"><input type="text" id="mH1" value="Sl No." style="text-align:center;"></th>
+                                    <th style="width: 38%;"><input type="text" id="mH2" value="Particulars / Description"></th>
+                                    <th style="width: 10%;"><input type="text" id="mH3" value="Qty" style="text-align:center;"></th>
+                                    <th style="width: 10%;"><input type="text" id="mH4" value="Unit" style="text-align:center;"></th>
+                                    <th style="width: 14%;"><input type="text" id="mH5" value="Rate" style="text-align:right;"></th>
+                                    <th style="width: 15%;"><input type="text" id="mH6" value="Amount (AED)" style="text-align:right;"></th>
+                                    <th style="width: 5%; text-align:center;">Del</th>
                                 </tr>
                             </thead>
                             <tbody id="manualItemsBody">
                                 <!-- Dynamic Rows -->
                             </tbody>
                         </table>
-                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addManualRow()"><i class="fas fa-plus"></i> Add Item Row</button>
                     </div>
+                    <button type="button" class="mi-btn mi-btn-outline" onclick="addManualRow()" style="margin-bottom:25px;">+ Add New Item Row</button>
 
-                    <!-- TOTALS & AMOUNT IN WORDS -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Totals Block Text (Multiline Right Aligned)</label>
-                            <textarea id="mTotalsText" class="form-control" rows="4" placeholder="Sub Total: 1,000.00&#10;OUTPUT VAT @ 5%: 50.00"></textarea>
+                    <h4 class="mi-section-title">4. Totals & Wrap-up</h4>
+                    <div class="mi-grid-2">
+                        <div class="mi-form-group">
+                            <label class="mi-label">Totals Block Text (Multiline Right Aligned)</label>
+                            <textarea id="mTotalsText" class="mi-input" rows="3" placeholder="Sub Total: 1,000.00&#10;OUTPUT VAT @ 5%: 50.00"></textarea>
                             
-                            <label class="form-label fw-bold mt-2">Amount Chargeable in Words</label>
-                            <input type="text" id="mAmountInWords" class="form-control" placeholder="AED One Thousand Fifty Only">
+                            <label class="mi-label" style="margin-top:10px;">Amount Chargeable in Words</label>
+                            <input type="text" id="mAmountInWords" class="mi-input" placeholder="AED One Thousand Fifty Only">
                         </div>
-                        <div class="col-md-6" style="background:var(--bg-light); padding:15px; border-radius:6px;">
-                            <label class="form-label fw-bold">Grand Total Box Label</label>
-                            <input type="text" id="mGrandTotalLabel" class="form-control mb-2" value="GRAND TOTAL">
-                            
-                            <label class="form-label fw-bold">Grand Total Final Value (AED)</label>
-                            <input type="text" id="mGrandTotalValue" class="form-control text-end fw-bold fs-5 text-primary" placeholder="AED 1,050.00">
+                        <div class="mi-totals-box">
+                            <div class="mi-form-group">
+                                <label class="mi-label">Grand Total Box Label</label>
+                                <input type="text" id="mGrandTotalLabel" class="mi-input" value="GRAND TOTAL">
+                            </div>
+                            <div class="mi-form-group" style="margin-top:15px;">
+                                <label class="mi-label">Grand Total Final Value (AED)</label>
+                                <input type="text" id="mGrandTotalValue" class="mi-input mi-grand-total" placeholder="AED 1,050.00">
+                            </div>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- SAVED MANUAL INVOICES HISTORY -->
-        <div class="card">
-            <div class="card-header"><h4 style="margin:0;"><i class="fas fa-history"></i> Saved Manual Invoices</h4></div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
+        <div class="mi-card">
+            <div class="mi-header">
+                <h3 class="mi-title" style="font-size:1.2rem;">Saved Documents History</h3>
+            </div>
+            <div class="mi-table-wrapper" style="margin:0; border:none; border-radius:0;">
+                <table class="mi-table">
+                    <thead style="background:#f1f5f9;">
+                        <tr>
+                            <th style="color:#1a3a5c;">Date / Info</th>
+                            <th style="color:#1a3a5c;">Title</th>
+                            <th style="color:#1a3a5c;">Buyer Summary</th>
+                            <th style="color:#1a3a5c; text-align:right;">Grand Total</th>
+                            <th style="color:#1a3a5c; text-align:center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${savedDocs.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b;">No manual invoices saved yet.</td></tr>` : ''}
+                        ${savedDocs.map(doc => `
                             <tr>
-                                <th>Date / ID</th>
-                                <th>Title</th>
-                                <th>Buyer Info Summary</th>
-                                <th>Grand Total</th>
-                                <th class="text-end">Actions</th>
+                                <td>
+                                    <div style="font-weight:600; color:#1a3a5c;">${doc.metaText ? doc.metaText.split('\n')[0] : 'Manual Doc'}</div>
+                                    <small style="color:#64748b;">${doc.savedAt || ''}</small>
+                                </td>
+                                <td><span style="background:#e2e8f0; padding:4px 8px; border-radius:4px; font-size:0.85rem; font-weight:600;">${doc.docTitle || 'TAX INVOICE'}</span></td>
+                                <td style="color:#475569;">${(doc.buyerText || '').split('\n')[0].substring(0, 35)}...</td>
+                                <td style="text-align:right; font-weight:bold; color:#1a3a5c;">${doc.grandTotalValue || '-'}</td>
+                                <td style="text-align:center;">
+                                    <div style="display:flex; gap:5px; justify-content:center;">
+                                        <button class="mi-btn mi-btn-outline" style="padding:4px 8px; font-size:0.8rem;" onclick="editManualDoc('${doc.id}')">Edit</button>
+                                        <button class="mi-btn mi-btn-primary" style="padding:4px 8px; font-size:0.8rem;" onclick="downloadSavedManualPDF('${doc.id}')">PDF</button>
+                                        <button class="mi-btn mi-btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteManualInvoice('${doc.id}')">X</button>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            ${savedDocs.length === 0 ? `<tr><td colspan="5" class="text-center text-muted py-4">No manual invoices saved yet.</td></tr>` : ''}
-                            ${savedDocs.map(doc => `
-                                <tr>
-                                    <td>
-                                        <div class="fw-bold">${doc.metaText ? doc.metaText.split('\n')[0] : 'Manual Doc'}</div>
-                                        <small class="text-muted">${doc.savedAt || ''}</small>
-                                    </td>
-                                    <td><span class="badge bg-secondary">${doc.docTitle || 'TAX INVOICE'}</span></td>
-                                    <td>${(doc.buyerText || '').split('\n')[0].substring(0, 35)}...</td>
-                                    <td class="fw-bold text-primary">${doc.grandTotalValue || '-'}</td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editManualDoc('${doc.id}')"><i class="fas fa-edit"></i> Edit</button>
-                                        <button class="btn btn-sm btn-outline-success" onclick="downloadSavedManualPDF('${doc.id}')"><i class="fas fa-file-pdf"></i> PDF</button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteManualInvoice('${doc.id}')"><i class="fas fa-trash"></i></button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
+                        `).join('')}
+                    </tbody>
+                </table>
             </div>
         </div>
     `;
 
-    // Initialize with 1 default row if new
     addManualRow({ c1: '1', c2: 'Custom Woodwork Item', c3: '1.00', c4: 'Nos', c5: '100.00', c6: '100.00' });
 }
 
@@ -173,14 +218,14 @@ function addManualRow(data = {}) {
     tr.id = rowId;
 
     tr.innerHTML = `
-        <td><input type="text" class="form-control form-control-sm text-center m-c1" value="${data.c1 || (tbody.children.length + 1)}"></td>
-        <td><input type="text" class="form-control form-control-sm m-c2" value="${data.c2 || ''}" placeholder="Description"></td>
-        <td><input type="text" class="form-control form-control-sm text-center m-c3" value="${data.c3 || '1'}" oninput="calcManualRow('${rowId}')"></td>
-        <td><input type="text" class="form-control form-control-sm text-center m-c4" value="${data.c4 || 'Nos'}" placeholder="Unit/Hrs"></td>
-        <td><input type="text" class="form-control form-control-sm text-end m-c5" value="${data.c5 || '0.00'}" oninput="calcManualRow('${rowId}')"></td>
-        <td><input type="text" class="form-control form-control-sm text-end fw-bold m-c6" value="${data.c6 || '0.00'}"></td>
-        <td class="text-center">
-            <button type="button" class="btn btn-link text-danger p-0" onclick="document.getElementById('${rowId}').remove()"><i class="fas fa-times"></i></button>
+        <td><input type="text" class="m-c1" style="text-align:center;" value="${data.c1 || (tbody.children.length + 1)}"></td>
+        <td><input type="text" class="m-c2" value="${data.c2 || ''}" placeholder="Description"></td>
+        <td><input type="text" class="m-c3" style="text-align:center;" value="${data.c3 || '1'}" oninput="calcManualRow('${rowId}')"></td>
+        <td><input type="text" class="m-c4" style="text-align:center;" value="${data.c4 || 'Nos'}" placeholder="Unit/Hrs"></td>
+        <td><input type="text" class="m-c5" style="text-align:right;" value="${data.c5 || '0.00'}" oninput="calcManualRow('${rowId}')"></td>
+        <td><input type="text" class="m-c6" style="text-align:right; font-weight:bold; color:#1a3a5c;" value="${data.c6 || '0.00'}"></td>
+        <td style="text-align:center;">
+            <button type="button" class="mi-btn mi-btn-danger" style="padding:6px 10px;" onclick="document.getElementById('${rowId}').remove()">X</button>
         </td>
     `;
     tbody.appendChild(tr);
