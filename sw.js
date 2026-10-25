@@ -1,46 +1,70 @@
-// Service Worker - Al Bowry Carpentry LLC
-const CACHE_NAME = 'albowry-invoice-v1';
-const urlsToCache = [
-    '/',
-    '/index.html',
-    '/css/style.css',
-    '/js/utils.js',
-    '/js/db.js',
-    '/js/auth.js',
-    '/js/app.js',
-    '/js/dashboard.js',
-    '/js/customers.js',
-    '/js/invoices.js',
-    '/js/quotations.js',
-    '/js/suppliers.js',
-    '/js/purchases.js',
-    '/js/reports.js',
-    '/js/vat-reports.js',
-    '/js/settings.js',
-    '/js/pdf.js',
-    '/js/whatsapp.js',
-    '/public/logo.png'
+// ═══════════════════════════════════════════════════════
+// AL BOWRY CARPENTRY LLC - Service Worker
+// Offline Caching & PWA Support
+// ═══════════════════════════════════════════════════════
+
+const CACHE_NAME = 'albowry-cache-v2';
+const ASSETS_TO_CACHE = [
+    './',
+    './index.html',
+    './manifest.json',
+    './public/logo.png',
+    './css/style.css',
+    './js/utils.js',
+    './js/db.js',
+    './js/auth.js',
+    './js/app.js',
+    './js/pdf.js'
 ];
 
-self.addEventListener('install', event => {
+// Install Event
+self.addEventListener('install', (event) => {
+    self.skipWaiting(); // Force activate
     event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(urlsToCache))
+        caches.open(CACHE_NAME).then((cache) => {
+            console.log('Opened cache');
+            return cache.addAll(ASSETS_TO_CACHE);
+        })
     );
-    self.skipWaiting();
 });
 
-self.addEventListener('fetch', event => {
+// Activate Event (Cleanup old caches)
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => self.clients.claim())
+    );
+});
+
+// Fetch Event (Network First, fallback to Cache)
+// App mostly uses LocalStorage/Firebase, so we want fresh JS if network is available
+self.addEventListener('fetch', (event) => {
+    // Only cache GET requests
+    if (event.request.method !== 'GET') return;
+
     event.respondWith(
         fetch(event.request)
-            .catch(() => caches.match(event.request))
-    );
-});
-
-self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-        )
+            .then((response) => {
+                // If network succeeds, clone and update cache
+                const resClone = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, resClone);
+                });
+                return response;
+            })
+            .catch(() => {
+                // If network fails, use cache
+                return caches.match(event.request).then((response) => {
+                    return response || caches.match('./index.html');
+                });
+            })
     );
 });
