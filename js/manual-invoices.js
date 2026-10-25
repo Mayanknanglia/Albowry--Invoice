@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Manual Invoice System (PREMIUM UI)
-// 100% Custom & Editable Invoice Generator
+// AL BOWRY CARPENTRY LLC - Manual Invoice System (SMART UI)
+// Features: Premium Design, Auto-Calculations, Auto-Fill
 // ═══════════════════════════════════════════════════════
 
 const MANUAL_INV_KEY = 'albowry_manual_invoices';
@@ -31,8 +31,8 @@ function deleteManualInvoice(id) {
 
 function renderManualInvoices(container) {
     const savedDocs = getSavedManualInvoices();
+    const customers = (typeof DB !== 'undefined' ? DB.get('albowry_customers') : []) || [];
 
-    // PREMIUM CUSTOM STYLES (NO BOOTSTRAP NEEDED)
     const customStyles = `
         <style>
             .mi-card { background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border-top: 5px solid #1a3a5c; overflow: hidden; }
@@ -40,7 +40,7 @@ function renderManualInvoices(container) {
             .mi-title { margin: 0; color: #1a3a5c; font-size: 1.4rem; }
             .mi-subtitle { margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b; }
             .mi-body { padding: 25px 20px; }
-            .mi-section-title { font-size: 1.1rem; color: #1a3a5c; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; font-weight: 600; }
+            .mi-section-title { font-size: 1.1rem; color: #1a3a5c; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #f1f5f9; font-weight: 600; display:flex; justify-content:space-between; align-items:center;}
             
             .mi-grid-1-2 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 25px; }
             .mi-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
@@ -78,8 +78,8 @@ function renderManualInvoices(container) {
         <div class="mi-card">
             <div class="mi-header">
                 <div>
-                    <h3 class="mi-title">&#9998; Manual Free-Form Document</h3>
-                    <p class="mi-subtitle">Fully editable layout. Change headers, columns, and data directly.</p>
+                    <h3 class="mi-title">&#9998; Smart Manual Document</h3>
+                    <p class="mi-subtitle">Fully editable with Auto-Calculations and Auto-Fill.</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button class="mi-btn mi-btn-secondary" onclick="resetManualForm()">Reset</button>
@@ -104,23 +104,28 @@ function renderManualInvoices(container) {
                         </div>
                     </div>
 
-                    <h4 class="mi-section-title">2. Buyer & Meta Information</h4>
+                    <h4 class="mi-section-title">
+                        2. Buyer & Meta Information
+                        <div style="display:flex; gap:10px;">
+                            <select id="mCustomerSelect" class="mi-input" style="width:200px; padding:6px; font-size:0.85rem;" onchange="autoFillManualCustomer()">
+                                <option value="">-- Load Saved Customer --</option>
+                                ${customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+                            </select>
+                            <button type="button" class="mi-btn mi-btn-secondary" style="padding:6px 12px; font-size:0.85rem;" onclick="autoFillManualMeta()">⚡ Auto Invoice No</button>
+                        </div>
+                    </h4>
                     <div class="mi-grid-2">
                         <div class="mi-form-group">
                             <label class="mi-label">Buyer Details (Left Box)</label>
-                            <textarea id="mBuyerText" class="mi-input" rows="5" placeholder="Buyer (Bill to):&#10;Customer Name LLC&#10;Dubai, UAE&#10;Phone: +971 50 000 0000&#10;TRN: 100000000000003"></textarea>
+                            <textarea id="mBuyerText" class="mi-input" rows="5" placeholder="Buyer (Bill to):&#10;Customer Name LLC&#10;Dubai, UAE"></textarea>
                         </div>
                         <div class="mi-form-group">
                             <label class="mi-label">Invoice Info (Right Box)</label>
-                            <textarea id="mMetaText" class="mi-input" rows="5" placeholder="Invoice No.: ABC-2026-MAN-001&#10;Dated: 26-Oct-2026&#10;Mode/Terms: Cash / Cheque&#10;LPO No.: LPO-88493"></textarea>
+                            <textarea id="mMetaText" class="mi-input" rows="5" placeholder="Invoice No.: ...&#10;Dated: ..."></textarea>
                         </div>
                     </div>
 
-                    <h4 class="mi-section-title" style="display:flex; justify-content:space-between; align-items:center;">
-                        3. Table Columns & Items
-                        <span style="font-size:0.8rem; background:#fff7ed; color:#c2410c; padding:4px 8px; border-radius:4px; border:1px solid #ffedd5;">You can edit column names directly!</span>
-                    </h4>
-                    
+                    <h4 class="mi-section-title">3. Table Columns & Items</h4>
                     <div class="mi-table-wrapper">
                         <table class="mi-table" id="manualItemsTable">
                             <thead>
@@ -141,14 +146,16 @@ function renderManualInvoices(container) {
                     </div>
                     <button type="button" class="mi-btn mi-btn-outline" onclick="addManualRow()" style="margin-bottom:25px;">+ Add New Item Row</button>
 
-                    <h4 class="mi-section-title">4. Totals & Wrap-up</h4>
+                    <h4 class="mi-section-title">4. Totals & Wrap-up
+                        <button type="button" class="mi-btn mi-btn-secondary" style="padding:4px 10px; font-size:0.8rem;" onclick="calcGlobalManualTotals()">🔄 Refresh Totals</button>
+                    </h4>
                     <div class="mi-grid-2">
                         <div class="mi-form-group">
                             <label class="mi-label">Totals Block Text (Multiline Right Aligned)</label>
-                            <textarea id="mTotalsText" class="mi-input" rows="3" placeholder="Sub Total: 1,000.00&#10;OUTPUT VAT @ 5%: 50.00"></textarea>
+                            <textarea id="mTotalsText" class="mi-input" rows="3" placeholder="Sub Total: 0.00"></textarea>
                             
                             <label class="mi-label" style="margin-top:10px;">Amount Chargeable in Words</label>
-                            <input type="text" id="mAmountInWords" class="mi-input" placeholder="AED One Thousand Fifty Only">
+                            <input type="text" id="mAmountInWords" class="mi-input" placeholder="AED Zero Only">
                         </div>
                         <div class="mi-totals-box">
                             <div class="mi-form-group">
@@ -157,7 +164,7 @@ function renderManualInvoices(container) {
                             </div>
                             <div class="mi-form-group" style="margin-top:15px;">
                                 <label class="mi-label">Grand Total Final Value (AED)</label>
-                                <input type="text" id="mGrandTotalValue" class="mi-input mi-grand-total" placeholder="AED 1,050.00">
+                                <input type="text" id="mGrandTotalValue" class="mi-input mi-grand-total" placeholder="0.00">
                             </div>
                         </div>
                     </div>
@@ -206,7 +213,27 @@ function renderManualInvoices(container) {
         </div>
     `;
 
-    addManualRow({ c1: '1', c2: 'Custom Woodwork Item', c3: '1.00', c4: 'Nos', c5: '100.00', c6: '100.00' });
+    addManualRow({ c1: '1', c2: '', c3: '1', c4: 'Nos', c5: '0.00', c6: '0.00' });
+}
+
+// 🔥 AUTO FILL FUNCTIONS
+function autoFillManualCustomer() {
+    const id = document.getElementById('mCustomerSelect').value;
+    if(!id) return;
+    const customers = DB.get('albowry_customers') || [];
+    const c = customers.find(x => x.id === id);
+    if(c) {
+        let text = `Buyer (Bill to):\n${c.name}\n${c.address || ''}\nPhone: ${c.phone || ''}`;
+        if(c.trn) text += `\nTRN: ${c.trn}`;
+        document.getElementById('mBuyerText').value = text;
+    }
+}
+
+function autoFillManualMeta() {
+    const today = typeof formatDate === 'function' ? formatDate(new Date().toISOString()) : new Date().toLocaleDateString();
+    const invNo = 'MAN-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*1000)).padStart(3,'0');
+    const text = `Invoice No.: ${invNo}\nDated: ${today}\nMode/Terms: Cash`;
+    document.getElementById('mMetaText').value = text;
 }
 
 function addManualRow(data = {}) {
@@ -220,15 +247,20 @@ function addManualRow(data = {}) {
     tr.innerHTML = `
         <td><input type="text" class="m-c1" style="text-align:center;" value="${data.c1 || (tbody.children.length + 1)}"></td>
         <td><input type="text" class="m-c2" value="${data.c2 || ''}" placeholder="Description"></td>
-        <td><input type="text" class="m-c3" style="text-align:center;" value="${data.c3 || '1'}" oninput="calcManualRow('${rowId}')"></td>
-        <td><input type="text" class="m-c4" style="text-align:center;" value="${data.c4 || 'Nos'}" placeholder="Unit/Hrs"></td>
-        <td><input type="text" class="m-c5" style="text-align:right;" value="${data.c5 || '0.00'}" oninput="calcManualRow('${rowId}')"></td>
-        <td><input type="text" class="m-c6" style="text-align:right; font-weight:bold; color:#1a3a5c;" value="${data.c6 || '0.00'}"></td>
+        <td><input type="number" class="m-c3" style="text-align:center;" value="${data.c3 || '1'}" oninput="calcManualRow('${rowId}')"></td>
+        <td><input type="text" class="m-c4" style="text-align:center;" value="${data.c4 || 'Nos'}" placeholder="Unit"></td>
+        <td><input type="number" class="m-c5" style="text-align:right;" value="${data.c5 || '0.00'}" oninput="calcManualRow('${rowId}')"></td>
+        <td><input type="text" class="m-c6" style="text-align:right; font-weight:bold; color:#1a3a5c;" value="${data.c6 || '0.00'}" oninput="calcGlobalManualTotals()"></td>
         <td style="text-align:center;">
-            <button type="button" class="mi-btn mi-btn-danger" style="padding:6px 10px;" onclick="document.getElementById('${rowId}').remove()">X</button>
+            <button type="button" class="mi-btn mi-btn-danger" style="padding:6px 10px;" onclick="removeManualRow('${rowId}')">X</button>
         </td>
     `;
     tbody.appendChild(tr);
+}
+
+function removeManualRow(rowId) {
+    document.getElementById(rowId).remove();
+    calcGlobalManualTotals();
 }
 
 function calcManualRow(rowId) {
@@ -237,8 +269,32 @@ function calcManualRow(rowId) {
     const qty = parseFloat(tr.querySelector('.m-c3').value) || 0;
     const rate = parseFloat(tr.querySelector('.m-c5').value) || 0;
     const amtInput = tr.querySelector('.m-c6');
-    if (qty > 0 && rate > 0) {
-        amtInput.value = (qty * rate).toFixed(2);
+    
+    const amount = qty * rate;
+    amtInput.value = amount.toFixed(2);
+    
+    calcGlobalManualTotals();
+}
+
+// 🔥 SMART GLOBAL TOTALS CALCULATION
+function calcGlobalManualTotals() {
+    let sum = 0;
+    document.querySelectorAll('#manualItemsBody .m-c6').forEach(inp => {
+        sum += parseFloat(inp.value) || 0;
+    });
+
+    const format = typeof formatNum === 'function' ? formatNum(sum) : sum.toFixed(2);
+    
+    // Auto fill Sub Total text ONLY if it's empty or already says Sub Total
+    const totalsTextEl = document.getElementById('mTotalsText');
+    if(totalsTextEl.value === '' || totalsTextEl.value.startsWith('Sub Total:')) {
+        totalsTextEl.value = `Sub Total: ${format}`;
+    }
+
+    document.getElementById('mGrandTotalValue').value = `AED ${format}`;
+    
+    if (typeof numberToWords === 'function') {
+        document.getElementById('mAmountInWords').value = numberToWords(sum);
     }
 }
 
