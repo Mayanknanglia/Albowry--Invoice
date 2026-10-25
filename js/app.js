@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Main Application Logic
-// Features: App Routing, PWA Install (Login & Topbar), Theme
+// Features: App Routing, Dynamic Logo Engine, PWA Install, Theme
 // ═══════════════════════════════════════════════════════
 
 let currentPage = 'dashboard';
@@ -8,6 +8,7 @@ let deferredPrompt = null;
 
 function initializeApp() {
     loadTheme();
+    loadLogos(); // 🔥 Dynamic Logo Engine
     loadSidebarInfo();
     navigateTo('dashboard');
     hideLoading();
@@ -39,6 +40,49 @@ window.renderCurrentPage = function() {
     if (container) renderPage(currentPage, container, true);
 };
 
+// ════════ 🔥 DYNAMIC LOGO ENGINE (Login & Sidebar) ════════
+function loadLogos() {
+    let settings = {};
+    try {
+        if (typeof DB !== 'undefined' && typeof DB.getSettings === 'function') {
+            settings = DB.getSettings() || {};
+        }
+    } catch(e){}
+
+    const logoSrc = settings.logoUrl || 'public/logo.png';
+
+    // 1. Login Page Logo
+    const loginLogo = document.querySelector('.login-logo');
+    if (loginLogo) {
+        loginLogo.src = logoSrc;
+        loginLogo.style.display = 'block';
+        loginLogo.onerror = function() {
+            if (this.src !== location.origin + '/public/logo.png' && !this.src.endsWith('public/logo.png')) {
+                this.src = 'public/logo.png';
+            } else {
+                this.style.display = 'none'; // Only hide if public/logo.png also 404s
+            }
+        };
+    }
+
+    // 2. Sidebar Logo
+    const sidebarLogo = document.querySelector('.sidebar-logo');
+    if (sidebarLogo) {
+        sidebarLogo.src = logoSrc;
+        sidebarLogo.style.display = 'block';
+        sidebarLogo.onerror = function() {
+            if (this.src !== location.origin + '/public/logo.png' && !this.src.endsWith('public/logo.png')) {
+                this.src = 'public/logo.png';
+            } else {
+                this.style.display = 'none';
+            }
+        };
+    }
+}
+
+// Global helper to refresh logos immediately when saved in Settings
+window.refreshAppLogos = loadLogos;
+
 // ════════ PWA INSTALL LOGIC (PC + Phone) ════════
 function isIosDevice() {
     return /iphone|ipad|ipod/i.test(navigator.userAgent)
@@ -55,7 +99,6 @@ function updateInstallUI() {
     const topbarBtn = document.getElementById('installAppBtn');
     const iosTip = document.getElementById('iosInstallTip');
 
-    // If already installed, hide all install buttons
     if (isInStandaloneMode()) {
         if (loginBox) loginBox.style.display = 'none';
         if (topbarBtn) topbarBtn.style.display = 'none';
@@ -63,7 +106,6 @@ function updateInstallUI() {
         return;
     }
 
-    // iOS Safari tip (Apple doesn't support install button)
     if (isIosDevice()) {
         if (loginBox) loginBox.style.display = 'none';
         if (topbarBtn) topbarBtn.style.display = 'none';
@@ -71,7 +113,6 @@ function updateInstallUI() {
         return;
     }
 
-    // Android/Chrome/Edge (Show if prompt is ready)
     const canInstall = !!deferredPrompt;
     if (loginBox) loginBox.style.display = canInstall ? 'block' : 'none';
     if (topbarBtn) topbarBtn.style.display = canInstall ? 'inline-flex' : 'none';
@@ -108,14 +149,13 @@ function setupInstallButtons() {
     const topbarBtn = document.getElementById('installAppBtn');
 
     if (loginBtn) {
-        // Remove old listeners to avoid duplicates
         const newLoginBtn = loginBtn.cloneNode(true);
-        loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        if (loginBtn.parentNode) loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
         newLoginBtn.addEventListener('click', (e) => { e.preventDefault(); triggerPwaInstall(); });
     }
     if (topbarBtn) {
         const newTopbarBtn = topbarBtn.cloneNode(true);
-        topbarBtn.parentNode.replaceChild(newTopbarBtn, topbarBtn);
+        if (topbarBtn.parentNode) topbarBtn.parentNode.replaceChild(newTopbarBtn, topbarBtn);
         newTopbarBtn.addEventListener('click', (e) => { e.preventDefault(); triggerPwaInstall(); });
     }
     updateInstallUI();
@@ -123,7 +163,7 @@ function setupInstallButtons() {
 
 // ════════ UI HELPERS ════════
 function loadSidebarInfo() {
-    const settings = DB.getSettings();
+    const settings = (typeof DB !== 'undefined' && DB.getSettings) ? DB.getSettings() : {};
     const userNameEl = document.getElementById('sidebarUserName');
     if (userNameEl) userNameEl.textContent = 'Administrator';
     
@@ -132,8 +172,6 @@ function loadSidebarInfo() {
         if (settings.profilePhoto) { photoEl.src = settings.profilePhoto; photoEl.style.display = 'block'; } 
         else { photoEl.style.display = 'none'; }
     }
-    const sidebarLogo = document.querySelector('.sidebar-logo');
-    if (sidebarLogo && settings.logoUrl) sidebarLogo.src = settings.logoUrl;
 }
 
 function navigateTo(pageId) {
@@ -215,6 +253,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 window.addEventListener('DOMContentLoaded', () => { 
+    loadLogos(); // Load logo right away on DOM ready
     if(typeof checkAuth === 'function') checkAuth(); 
     setupInstallButtons(); 
 });
