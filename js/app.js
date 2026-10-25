@@ -1,9 +1,10 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Main Application Logic
+// Features: App Routing, PWA Install (Login & Topbar), Theme
 // ═══════════════════════════════════════════════════════
 
 let currentPage = 'dashboard';
-let deferredPrompt; 
+let deferredPrompt = null; 
 
 function initializeApp() {
     loadTheme();
@@ -19,7 +20,9 @@ function initializeApp() {
     }
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('SW Registered!', reg.scope))
+            .catch(err => console.log('SW failed:', err));
     }
 
     document.addEventListener('click', (e) => {
@@ -27,29 +30,98 @@ function initializeApp() {
             document.querySelectorAll('.action-dropdown.show').forEach(d => d.classList.remove('show'));
         }
     });
+
+    setupInstallButtons();
 }
 
-// Global helper for DB Engine to trigger UI re-renders on live data changes
 window.renderCurrentPage = function() {
     const container = document.getElementById('pageContainer');
     if (container) renderPage(currentPage, container, true);
 };
 
+// ════════ PWA INSTALL LOGIC (PC + Phone) ════════
+function isIosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isInStandaloneMode() {
+    return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+}
+
+function updateInstallUI() {
+    const loginBox = document.getElementById('loginInstallBox');
+    const topbarBtn = document.getElementById('installAppBtn');
+    const iosTip = document.getElementById('iosInstallTip');
+
+    // If already installed, hide all install buttons
+    if (isInStandaloneMode()) {
+        if (loginBox) loginBox.style.display = 'none';
+        if (topbarBtn) topbarBtn.style.display = 'none';
+        if (iosTip) iosTip.style.display = 'none';
+        return;
+    }
+
+    // iOS Safari tip (Apple doesn't support install button)
+    if (isIosDevice()) {
+        if (loginBox) loginBox.style.display = 'none';
+        if (topbarBtn) topbarBtn.style.display = 'none';
+        if (iosTip) iosTip.style.display = 'block';
+        return;
+    }
+
+    // Android/Chrome/Edge (Show if prompt is ready)
+    const canInstall = !!deferredPrompt;
+    if (loginBox) loginBox.style.display = canInstall ? 'block' : 'none';
+    if (topbarBtn) topbarBtn.style.display = canInstall ? 'inline-flex' : 'none';
+    if (iosTip) iosTip.style.display = 'none';
+}
+
+async function triggerPwaInstall() {
+    if (!deferredPrompt) {
+        if(typeof showToast === 'function') showToast('Install not ready. Try Browser Menu -> Install', 'info');
+        return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+        if(typeof showToast === 'function') showToast('App Installed Successfully! 🎉', 'success');
+    }
+    deferredPrompt = null;
+    updateInstallUI();
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    const installBtn = document.getElementById('installAppBtn');
-    if (installBtn) {
-        installBtn.style.display = 'inline-flex';
-        installBtn.addEventListener('click', async () => {
-            installBtn.style.display = 'none';
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-        }, { once: true });
-    }
+    updateInstallUI();
 });
 
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    updateInstallUI();
+});
+
+function setupInstallButtons() {
+    const loginBtn = document.getElementById('loginInstallBtn');
+    const topbarBtn = document.getElementById('installAppBtn');
+
+    if (loginBtn) {
+        // Remove old listeners to avoid duplicates
+        const newLoginBtn = loginBtn.cloneNode(true);
+        loginBtn.parentNode.replaceChild(newLoginBtn, loginBtn);
+        newLoginBtn.addEventListener('click', (e) => { e.preventDefault(); triggerPwaInstall(); });
+    }
+    if (topbarBtn) {
+        const newTopbarBtn = topbarBtn.cloneNode(true);
+        topbarBtn.parentNode.replaceChild(newTopbarBtn, topbarBtn);
+        newTopbarBtn.addEventListener('click', (e) => { e.preventDefault(); triggerPwaInstall(); });
+    }
+    updateInstallUI();
+}
+
+// ════════ UI HELPERS ════════
 function loadSidebarInfo() {
     const settings = DB.getSettings();
     const userNameEl = document.getElementById('sidebarUserName');
@@ -79,7 +151,7 @@ function navigateTo(pageId) {
 
     const titles = {
         'dashboard': 'Dashboard', 'invoices': 'Tax Invoices', 'quotations': 'Quotations',
-        'manual-invoices': 'Manual Invoices', // <-- NEW ROUTE ADDED
+        'manual-invoices': 'Manual Invoices',
         'customers': 'Customer Directory', 'suppliers': 'Supplier Directory', 
         'purchases': 'Purchase Bills', 'reports': 'Business Analytics', 
         'vat-reports': 'VAT Tax Reports', 'settings': 'System Settings'
@@ -99,7 +171,7 @@ function renderPage(page, container, isSilentRender = false) {
         switch (page) {
             case 'dashboard': renderDashboard(container); break;
             case 'invoices': renderInvoices(container); break;
-            case 'manual-invoices': renderManualInvoices(container); break; // <-- NEW PAGE LINKED
+            case 'manual-invoices': renderManualInvoices(container); break;
             case 'quotations': renderQuotations(container); break;
             case 'customers': renderCustomers(container); break;
             case 'suppliers': renderSuppliers(container); break;
@@ -142,7 +214,10 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { const openModal = document.querySelector('.modal-overlay'); if (openModal) openModal.remove(); }
 });
 
-window.addEventListener('DOMContentLoaded', () => { checkAuth(); });
+window.addEventListener('DOMContentLoaded', () => { 
+    if(typeof checkAuth === 'function') checkAuth(); 
+    setupInstallButtons(); 
+});
 
 if (typeof closeModal === 'undefined') {
     window.closeModal = function(id) { const m = document.getElementById(id); if (m) m.remove(); };
