@@ -1703,3 +1703,87 @@ table .amount {
         grid-template-columns: 1fr !important; /* Stack every item field */
     }
 }
+/* ═══════════════════════════════════════════
+   LOGIN PAGE — INSTALL APP BUTTON
+═══════════════════════════════════════════ */
+.login-install-box {
+    animation: fadeIn 0.4s ease;
+}
+
+.login-install-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    color: #94a3b8;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.login-install-divider::before,
+.login-install-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+.login-install-divider span {
+    opacity: 0.8;
+}
+
+.btn-install-app {
+    width: 100%;
+    padding: 12px 18px;
+    border: 2px solid #d4a843;
+    background: linear-gradient(135deg, #1a3a5c 0%, #2a4a6c 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(26, 58, 92, 0.25);
+}
+.btn-install-app:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(212, 168, 67, 0.35);
+    border-color: #e8c56a;
+}
+.btn-install-app:active {
+    transform: translateY(0);
+}
+
+.login-install-hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: #64748b;
+    line-height: 1.45;
+}
+.login-install-hint small {
+    opacity: 0.85;
+}
+
+/* Dark mode login install */
+[data-theme="dark"] .login-install-divider::before,
+[data-theme="dark"] .login-install-divider::after {
+    background: #334155;
+}
+[data-theme="dark"] .login-install-hint {
+    color: #94a3b8;
+}
+[data-theme="dark"] .btn-install-app {
+    background: linear-gradient(135deg, #0f2744 0%, #1a3a5c 100%);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile: thoda tight */
+@media (max-width: 480px) {
+    .btn-install-app {
+        font-size: 0.9rem;
+        padding: 11px 14px;
+    }
+}
