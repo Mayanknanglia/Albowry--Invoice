@@ -42,18 +42,86 @@ function calculateVAT(amount) {
     return parseFloat((amount * 0.05).toFixed(2));
 }
 
-// Get Carpentry Measurement Units
+// ═══════════════════════════════════════════════════════
+// 🔥 MASSIVE UNIT DICTIONARY (Categorized)
+// ═══════════════════════════════════════════════════════
 function getUnitOptions() {
     return `
-        <option value="Meter">Meter (m)</option>
-        <option value="Hours">Hours</option
-        <option value="Sq.Meter">Sq. Meter (m²)</option>
-        <option value="Sq.Ft">Sq. Feet (ft²)</option>
-        <option value="R.Meter">Running Meter</option>
-        <option value="Pieces">Pieces</option>
-        <option value="Sets">Sets</option>
-        <option value="Nos">Nos</option>
-        <option value="Job">Lump Sum / Job</option>
+        <optgroup label="General / Common">
+            <option value="Nos">Nos (Numbers)</option>
+            <option value="Pieces">Pieces (Pcs)</option>
+            <option value="Sets">Sets</option>
+            <option value="Job">Lump Sum / Job</option>
+            <option value="Pair">Pair (Prs)</option>
+            <option value="Dozen">Dozen (Dz)</option>
+            <option value="Gross">Gross (Gr)</option>
+        </optgroup>
+        
+        <optgroup label="Length / Distance">
+            <option value="Meter">Meter (m)</option>
+            <option value="R.Meter">Running Meter (RM)</option>
+            <option value="Centimeter">Centimeter (cm)</option>
+            <option value="Millimeter">Millimeter (mm)</option>
+            <option value="Kilometer">Kilometer (km)</option>
+            <option value="Foot">Foot / Feet (ft)</option>
+            <option value="Inch">Inch (in)</option>
+            <option value="Yard">Yard (yd)</option>
+        </optgroup>
+
+        <optgroup label="Area (Surface)">
+            <option value="Sq.Meter">Sq. Meter (m²)</option>
+            <option value="Sq.Ft">Sq. Feet (ft²)</option>
+            <option value="Sq.Inch">Sq. Inch (in²)</option>
+            <option value="Sq.Yard">Sq. Yard (yd²)</option>
+            <option value="Sq.Cm">Sq. Centimeter (cm²)</option>
+            <option value="Acre">Acre</option>
+            <option value="Hectare">Hectare (ha)</option>
+        </optgroup>
+
+        <optgroup label="Volume / Capacity">
+            <option value="Cu.Meter">Cubic Meter (m³)</option>
+            <option value="Cu.Ft">Cubic Feet (ft³)</option>
+            <option value="Liter">Liter (L)</option>
+            <option value="Milliliter">Milliliter (ml)</option>
+            <option value="Gallon">Gallon (gal)</option>
+        </optgroup>
+
+        <optgroup label="Weight / Mass">
+            <option value="Kg">Kilogram (Kg)</option>
+            <option value="Gram">Gram (g)</option>
+            <option value="Mg">Milligram (mg)</option>
+            <option value="Ton">Metric Ton (t)</option>
+            <option value="Pound">Pound (lb)</option>
+            <option value="Ounce">Ounce (oz)</option>
+        </optgroup>
+
+        <optgroup label="Time / Labor">
+            <option value="Hours">Hours (Hrs)</option>
+            <option value="Days">Days</option>
+            <option value="Weeks">Weeks</option>
+            <option value="Months">Months</option>
+            <option value="Years">Years</option>
+            <option value="Man-Days">Man-Days</option>
+            <option value="Man-Hours">Man-Hours</option>
+            <option value="Shifts">Shifts</option>
+        </optgroup>
+
+        <optgroup label="Packaging / Containers">
+            <option value="Box">Box</option>
+            <option value="Carton">Carton (Ctn)</option>
+            <option value="Packet">Packet (Pkt)</option>
+            <option value="Bundle">Bundle (Bdl)</option>
+            <option value="Roll">Roll</option>
+            <option value="Coil">Coil</option>
+            <option value="Bag">Bag</option>
+            <option value="Sack">Sack</option>
+            <option value="Drum">Drum</option>
+            <option value="Bottle">Bottle</option>
+            <option value="Can">Can</option>
+            <option value="Cylinder">Cylinder</option>
+            <option value="Pallet">Pallet</option>
+            <option value="Container">Container</option>
+        </optgroup>
     `;
 }
 
