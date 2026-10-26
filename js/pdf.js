@@ -1,657 +1,375 @@
-// Helper: Format Money
-function formatMoney(num) {
-    let val = parseFloat(num);
-    if (isNaN(val)) return num || '0.00';
-    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+// ═══════════════════════════════════════════════════════
+// AL BOWRY CARPENTRY LLC - Advanced PDF Engine
+// Auto-Pagination, Dynamic Borders, Premium Layout
+// ═══════════════════════════════════════════════════════
 
-// Helper: Get Base64 Image
-function getBase64ImageFromURL(url) {
-    return new Promise((resolve) => {
-        if (!url) { resolve(null); return; }
-        var img = new Image();
-        img.setAttribute("crossOrigin", "anonymous");
-        img.onload = function () {
-            var canvas = document.createElement("canvas");
-            canvas.width = this.width;
-            canvas.height = this.height;
-            var ctx = canvas.getContext("2d");
-            ctx.drawImage(this, 0, 0);
-            var dataURL = canvas.toDataURL("image/png");
-            resolve(dataURL);
-        };
-        img.onerror = function () { resolve(null); };
-        img.src = url;
+function generateInvoicePDF(invoiceId, preview = false) {
+    const invoice = DB.get(DB_KEYS.INVOICES).find(i => i.id === invoiceId);
+    if (!invoice) return showToast('Invoice not found', 'error');
+    const settings = DB.getSettings();
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297, M = 10, W = pageW - 2 * M;
+    let y = M;
+
+    const col = {
+        sl: { x: M, w: 12 }, desc: { x: M + 12, w: 78 }, qty: { x: M + 90, w: 18 },
+        unit: { x: M + 108, w: 18 }, rate: { x: M + 126, w: 26 }, amount: { x: M + 152, w: 38 }
+    };
+    const splitX = col.qty.x;
+    const SIG_W = 58, SIG_H = 34;
+
+    const drawCell = (text, x, yPos, opts = {}) => {
+        doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
+        doc.setFontSize(opts.size || 9);
+        doc.setTextColor(...(opts.color || [0, 0, 0]));
+        doc.text(String(text || ''), x, yPos, { align: opts.align || 'left' });
+    };
+
+    const LINE_W = 0.4;
+    const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
+    const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
+
+    // PAGE BREAK LOGIC
+    let currentPage = 1;
+    const checkPageBreak = (neededH) => {
+        if (y + neededH > pageH - M - 10) {
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); // Close outer box
+            doc.addPage();
+            currentPage++;
+            y = M;
+            
+            // Re-draw table header
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
+        }
+    };
+
+    // ═══ TITLE ═══
+    drawCell('TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
+    y += 9; hLine(y);
+
+    // ═══ LOGO + COMPANY ═══
+    y += 3;
+    if (settings.logoUrl) { try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {} }
+    y += 24;
+    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] }); y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    const addrLines = doc.splitTextToSize(settings.address || '', 130);
+    addrLines.forEach(line => { doc.text(line, pageW / 2, y, { align: 'center' }); y += 3.8; });
+    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' }); y += 4.5;
+    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' }); y += 4; hLine(y);
+
+    // ═══ BUYER + INVOICE INFO ═══
+    const buyerBoxTop = y;
+    let leftY = y + 5;
+    drawCell('Buyer (Bill to):', M + 3, leftY, { bold: true, size: 9.5 }); leftY += 5;
+    drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 11.5 }); leftY += 5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    const custAddrLines = doc.splitTextToSize(invoice.customerAddress || '', splitX - M - 6);
+    custAddrLines.slice(0, 3).forEach(line => { doc.text(line, M + 3, leftY); leftY += 3.8; });
+    if (invoice.customerPhone) { doc.text(`Phone: ${invoice.customerPhone}`, M + 3, leftY); leftY += 3.8; }
+    if (invoice.customerTRN) { drawCell(`TRN: ${invoice.customerTRN}`, M + 3, leftY, { bold: true, size: 8.5 }); leftY += 4; }
+
+    let rightY = y + 5; const labelX = splitX + 4, valueX = splitX + 30;
+    drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.invoiceNumber, valueX, rightY, { bold: true, size: 9, color: [26, 58, 92] }); rightY += 5.5;
+    drawCell('Dated:', labelX, rightY, { bold: true, size: 9 }); drawCell(formatDate(invoice.date), valueX, rightY, { size: 9 }); rightY += 5.5;
+    drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 9 }); rightY += 5.5;
+    if (invoice.lpoNumber) { drawCell('LPO No.:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.lpoNumber, valueX, rightY, { size: 9 }); rightY += 5.5; }
+
+    const buyerBoxH = Math.max(leftY, rightY) - buyerBoxTop + 2;
+    vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH); y = buyerBoxTop + buyerBoxH; hLine(y);
+
+    if (invoice.projectName) {
+        y += 4; drawCell('Project:', M + 3, y, { bold: true, size: 9 }); drawCell(invoice.projectName, M + 20, y, { size: 9 }); y += 3.5; hLine(y);
+    }
+
+    // ═══ ITEMS TABLE ═══
+    checkPageBreak(25);
+    doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+    drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+    drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+    y += 7; hLine(y);
+
+    let totalQtyCount = 0; const itemsStartY = y;
+    (invoice.items || []).forEach((item, idx) => {
+        const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
+        const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
+        checkPageBreak(rowH + 2);
+        
+        const rowTop = y; totalQtyCount += parseFloat(item.qty || 0);
+        drawCell(String(idx + 1), col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(descLines[0] || '', col.desc.x + 2, y + 4.5);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+        for (let i = 1; i < descLines.length; i++) { doc.text(descLines[i], col.desc.x + 2, y + 4.5 + (i * 3.5)); }
+
+        drawCell(formatNum(item.qty), col.qty.x + col.qty.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        drawCell(item.unit || 'Nos', col.unit.x + col.unit.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        drawCell(formatNum(item.rate), col.rate.x + col.rate.w - 2, y + 4.5, { size: 8.5, align: 'right' });
+        drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 2, y + 4.5, { bold: true, size: 8.5, align: 'right' });
+
+        y += rowH;
+        vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
+
+    const minTableHeight = 28;
+    if ((y - itemsStartY) < minTableHeight && currentPage === 1) {
+        const emptySpace = minTableHeight - (y - itemsStartY);
+        vLine(col.desc.x, y, y + emptySpace); vLine(col.qty.x, y, y + emptySpace); vLine(col.unit.x, y, y + emptySpace); vLine(col.rate.x, y, y + emptySpace); vLine(col.amount.x, y, y + emptySpace);
+        y += emptySpace;
+    }
+    hLine(y);
+
+    // ═══ TOTALS ═══
+    checkPageBreak(50);
+    const totalsTop = y; y += 4.5;
+    const labelAlign = col.amount.x - 2, valueAlign = col.amount.x + col.amount.w - 2;
+
+    drawCell('Total Qty:', col.desc.x + col.desc.w - 2, y, { bold: true, size: 8, align: 'right', color: [100, 100, 100] });
+    drawCell(formatNum(totalQtyCount), col.qty.x + col.qty.w / 2, y, { bold: true, size: 9, align: 'center' });
+    drawCell('Sub Total', labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5;
+
+    if (invoice.discount > 0) { drawCell('Discount', labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5; }
+    if (invoice.vatEnabled) { drawCell(`OUTPUT VAT @ ${invoice.vatRate || 5}%`, labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5; }
+    if (invoice.roundOff > 0) {
+        drawCell('Round Off', labelAlign, y, { size: 9.5, align: 'right' });
+        drawCell(`${invoice.roundOffType === 'add' ? '(+)' : '(-)'} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 9.5, align: 'right' }); y += 4.5;
+    }
+    y += 0.5; vLine(col.amount.x, totalsTop, y); hLine(y);
+
+    // ═══ GRAND TOTAL ═══
+    doc.setFillColor(242, 246, 249); doc.rect(M, y, W, 8.5, 'F'); y += 5.8;
+    drawCell('GRAND TOTAL', labelAlign, y, { bold: true, size: 11, align: 'right', color: [26, 58, 92] });
+    drawCell(`AED ${formatNum(invoice.grandTotal)}`, valueAlign, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
+    y += 2.7; vLine(col.amount.x, y - 8.5, y); hLine(y);
+
+    // ═══ AMOUNT IN WORDS ═══
+    y += 4; drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
+    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' }); y += 5;
+    drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
+
+    // ═══ BANK + STAMP ═══
+    checkPageBreak(45);
+    const bottomBoxTop = y; let bankY = y + 4;
+    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 }); bankY += 4.5;
+    const bx = M + 3, by = M + 28;
+    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
+    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
+
+    const stampNeededH = 4 + SIG_H + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
+    drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
+    if (settings.signatureUrl) {
+        try { const rW = (M + W) - splitX; const sigX = splitX + (rW - SIG_W) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H); } catch (e) {}
+    }
+    drawCell('Authorised Signatory', M + W - 3, boxBottomY - 3, { bold: true, size: 9, align: 'right' });
+    vLine(splitX, bottomBoxTop, boxBottomY); hLine(boxBottomY); y = boxBottomY;
+
+    // ═══ CONTACT FOOTER ═══
+    y += 4; const cw = W / 3;
+    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 }); drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
+    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
+    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
+    y += 3.5; hLine(y);
+
+    // CLOSE FINAL PAGE BORDER
+    doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
+    drawCell('This is a Computer Generated Invoice', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
+
+    if (preview) { window.open(doc.output('bloburl'), '_blank'); } 
+    else { doc.save(`Invoice_${(invoice.invoiceNumber || 'INV').replace(/\//g, '-')}.pdf`); showToast('PDF downloaded!', 'success'); }
 }
 
-// Helper: Get Settings safely
-function getSafeSettings() {
-    if (typeof DB !== 'undefined' && typeof DB.getSettings === 'function') {
-        try { return DB.getSettings(); } catch(e){}
-    }
-    try {
-        return JSON.parse(localStorage.getItem('albowry_settings')) || {};
-    } catch(e) {
-        return {};
-    }
-}
 
-// ==========================================
-// 1. STANDARD INVOICE GENERATOR
-// ==========================================
-async function generateInvoicePDF(invoiceId, preview = false) {
-    try {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            throw new Error("jsPDF library not loaded. Please refresh the page.");
-        }
-        const { jsPDF } = window.jspdf;
+// ═══════════════════════════════════════════════════════
+// NEW: ADVANCED MANUAL INVOICE GENERATOR (100% Custom Layout)
+// Features: Auto-Page Break, Dynamic Wraps, Navy Blue Theme
+// ═══════════════════════════════════════════════════════
+function generateManualInvoicePDF(data, preview = false) {
+    const settings = DB.getSettings();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297, M = 10, W = pageW - 2 * M;
+    let y = M;
 
-        let invoice = null;
+    const col = {
+        sl: { x: M, w: 12 }, desc: { x: M + 12, w: 78 }, qty: { x: M + 90, w: 18 },
+        unit: { x: M + 108, w: 18 }, rate: { x: M + 126, w: 26 }, amount: { x: M + 152, w: 38 }
+    };
+    const splitX = col.qty.x;
+    const SIG_W = 58, SIG_H = 34;
 
-        // 1. Direct object passed
-        if (typeof invoiceId === 'object' && invoiceId !== null) {
-            invoice = invoiceId;
-        } else {
-            // 2. Search in all possible DB & LocalStorage sources
-            let invoices = [];
-            if (typeof DB !== 'undefined') {
-                if (typeof DB.getInvoices === 'function') {
-                    try { invoices = DB.getInvoices() || []; } catch(e){}
-                } else if (Array.isArray(DB.invoices)) {
-                    invoices = DB.invoices;
-                }
-            }
+    const drawCell = (text, x, yPos, opts = {}) => {
+        doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
+        doc.setFontSize(opts.size || 9); doc.setTextColor(...(opts.color || [0, 0, 0]));
+        doc.text(String(text || ''), x, yPos, { align: opts.align || 'left' });
+    };
+
+    const LINE_W = 0.4;
+    const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
+    const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
+
+    // PAGE BREAK LOGIC FOR MANUAL PDF
+    let currentPage = 1;
+    const checkPageBreak = (neededH) => {
+        if (y + neededH > pageH - M - 10) {
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); // Close outer border perfectly
+            doc.addPage();
+            currentPage++;
+            y = M;
             
-            if (!invoices || invoices.length === 0) {
-                try {
-                    invoices = JSON.parse(localStorage.getItem('albowry_invoices')) || 
-                               JSON.parse(localStorage.getItem('invoices')) || [];
-                } catch(e) {}
-            }
-
-            const searchStr = String(invoiceId).trim();
-
-            // Multi-criteria search: match ID, Invoice Number, or internal index
-            invoice = invoices.find(i => 
-                String(i.id).trim() === searchStr || 
-                String(i.invoiceNo).trim() === searchStr || 
-                String(i.number).trim() === searchStr ||
-                String(i.invNo).trim() === searchStr
-            );
-
-            // Fallback: If index passed as number
-            if (!invoice && !isNaN(invoiceId) && invoices[invoiceId]) {
-                invoice = invoices[invoiceId];
-            }
-
-            // Global LocalStorage Fallback Scan
-            if (!invoice) {
-                for (let k = 0; k < localStorage.length; k++) {
-                    let key = localStorage.key(k);
-                    if (key.includes('invoice')) {
-                        try {
-                            let parsed = JSON.parse(localStorage.getItem(key));
-                            if (Array.isArray(parsed)) {
-                                let found = parsed.find(i => 
-                                    String(i.id).trim() === searchStr || 
-                                    String(i.invoiceNo).trim() === searchStr ||
-                                    String(i.number).trim() === searchStr
-                                );
-                                if (found) { invoice = found; break; }
-                            }
-                        } catch(e){}
-                    }
-                }
-            }
+            // Re-draw manual table headers perfectly
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
         }
+    };
 
-        if (!invoice) throw new Error("Invoice not found in Database!");
+    // TITLE
+    drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
+    y += 9; hLine(y);
 
-        const settings = getSafeSettings();
+    // COMPANY INFO
+    y += 3;
+    if (settings.logoUrl) { try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {} }
+    y += 24;
+    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] }); y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+    const addrLines = doc.splitTextToSize(settings.address || '', 130);
+    addrLines.forEach(line => { doc.text(line, pageW / 2, y, { align: 'center' }); y += 3.8; });
+    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' }); y += 4.5;
+    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' }); y += 4; hLine(y);
 
-        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const M = 10;
-        const pageW = 210;
-        const pageH = 297;
-        const W = pageW - 2 * M;
-        const W_HALF = pageW / 2;
-        const primaryColor = [26, 58, 92];
+    // CUSTOM TEXT BLOCKS (Buyer & Meta)
+    const buyerBoxTop = y;
+    let leftY = y + 5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    const leftTextLines = doc.splitTextToSize(data.buyerText || '', splitX - M - 6);
+    leftTextLines.forEach(line => { doc.text(line, M + 3, leftY); leftY += 4.5; });
 
-        let y = M;
-        const maxPageY = pageH - M; // 287
-        const footerH = 65; // Totals(24) + Words(11) + Bank(30)
-        const yLimit = maxPageY - footerH; // 222
+    let rightY = y + 5;
+    const rightTextLines = doc.splitTextToSize(data.metaText || '', (M + W) - splitX - 6);
+    rightTextLines.forEach(line => { doc.text(line, splitX + 4, rightY); rightY += 4.5; });
 
-        const drawFrame = () => {
-            doc.setDrawColor(...primaryColor);
-            doc.setLineWidth(0.6);
-            doc.rect(M, M, W, pageH - 2 * M, 'S');
-        };
+    // 🔥 Exact Height calculation to prevent breaking
+    const buyerBoxH = Math.max(leftY, rightY) - buyerBoxTop + 2;
+    vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH);
+    y = buyerBoxTop + buyerBoxH; hLine(y);
 
-        const drawVertLines = (startY, endY) => {
-            doc.setDrawColor(...primaryColor);
-            doc.setLineWidth(0.4);
-            doc.line(22, startY, 22, endY);
-            doc.line(120, startY, 120, endY);
-            doc.line(140, startY, 140, endY);
-            doc.line(160, startY, 160, endY);
-            doc.line(180, startY, 180, endY);
-        };
-
-        // Initialize Page 1 Frame
-        drawFrame();
-
-        // Header Section
-        doc.setDrawColor(...primaryColor);
-        doc.setLineWidth(0.6);
-        doc.rect(M, y, W, 8, 'S');
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(...primaryColor);
-        doc.text("TAX INVOICE", W_HALF, y + 5.5, { align: "center" });
-
-        y += 8;
-        const logoImg = await getBase64ImageFromURL(settings.logoUrl || 'public/logo.png');
-        if (logoImg) {
-            doc.addImage(logoImg, 'PNG', W_HALF - 12, y + 2, 24, 24);
-        }
-
-        y += 28;
-        doc.setFontSize(14);
-        doc.text(settings.companyName || "AL BOWRY CARPENTRY LLC", W_HALF, y, { align: "center" });
-        y += 5;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(settings.address || "Sharjah, United Arab Emirates", W_HALF, y, { align: "center" });
-        y += 5;
-        doc.text(`TRN: ${settings.trn || "100391261300003"}`, W_HALF, y, { align: "center" });
-        
-        y += 5;
-        doc.setLineWidth(0.4);
-        doc.line(M, y, pageW - M, y);
-        y += 4;
-
-        // Buyer Details Parsing
-        let buyerObj = invoice.buyerInfo || invoice.buyer || invoice.customer || {};
-        let bName = buyerObj.name || invoice.customerName || invoice.buyerName || "";
-        let bAddr = buyerObj.address || invoice.customerAddress || invoice.address || "";
-        let bTrn = buyerObj.trn || invoice.customerTrn || invoice.trn || "";
-
-        let buyerTopY = y - 4;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.text("Buyer (Bill to):", 12, y);
-        doc.setFontSize(10);
-        y += 5;
-        let leftY = y;
-        
-        const buyerLines = doc.splitTextToSize(bName, 90);
-        doc.text(buyerLines, 12, leftY);
-        leftY += (buyerLines.length * 5);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        
-        if (bAddr) {
-            const addrLines = doc.splitTextToSize(bAddr, 90);
-            doc.text(addrLines, 12, leftY);
-            leftY += (addrLines.length * 4);
-        }
-        if (bTrn) {
-            doc.setFont("helvetica", "bold");
-            doc.text(`TRN: ${bTrn}`, 12, leftY);
-            leftY += 5;
-        }
-
-        // Meta Info Parsing
-        let rightY = buyerTopY + 5;
-        let invNo = invoice.invoiceNo || invoice.invNo || invoice.number || String(invoice.id);
-        let invDate = invoice.date || invoice.dated || invoice.createdDate || "";
-        let payMode = invoice.paymentMode || invoice.mode || invoice.terms || "Cash / Bank Transfer";
-
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.text("Invoice No. :", 105, rightY);
-        doc.text(invNo, 130, rightY);
-        rightY += 6;
-        doc.text("Dated :", 105, rightY);
-        doc.text(invDate, 130, rightY);
-        rightY += 6;
-        doc.text("Mode/Terms :", 105, rightY);
-        doc.setFont("helvetica", "normal");
-        doc.text(payMode, 130, rightY);
-        rightY += 6;
-
-        y = Math.max(leftY, rightY) + 2;
-        doc.line(M, y, pageW - M, y); // End Buyer Box
-        doc.line(105, buyerTopY, 105, y); // Vertical separator
-        
-        // Table Headers
-        let tableStartY = y;
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        y += 5;
-        doc.text("Sl No", 16, y, { align: "center" });
-        doc.text("Particulars", 24, y);
-        doc.text("Qty", 130, y, { align: "center" });
-        doc.text("Unit", 150, y, { align: "center" });
-        doc.text("Rate", 170, y, { align: "center" });
-        doc.text("Amount (AED)", 190, y, { align: "center" });
-        
-        y += 3;
-        doc.line(M, y, pageW - M, y);
-        
-        // Items Loop
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        let totalQty = 0;
-        let itemsArray = invoice.items || invoice.particulars || [];
-
-        for (let i = 0; i < itemsArray.length; i++) {
-            const item = itemsArray[i];
-            const partText = item.part || item.particulars || item.description || item.name || "";
-            const lines = doc.splitTextToSize(partText, 94);
-            const rowH = Math.max(8, lines.length * 5 + 3);
-
-            // Handle Page Break strictly at yLimit
-            if (y + rowH > yLimit) {
-                drawVertLines(tableStartY, maxPageY);
-                doc.setFontSize(8);
-                doc.text("Continued on next page...", W_HALF, maxPageY - 2, { align: "center" });
-                
-                doc.addPage();
-                drawFrame();
-                
-                y = M;
-                tableStartY = y;
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                doc.text("Sl No", 16, y + 5, { align: "center" });
-                doc.text("Particulars", 24, y + 5);
-                doc.text("Qty", 130, y + 5, { align: "center" });
-                doc.text("Unit", 150, y + 5, { align: "center" });
-                doc.text("Rate", 170, y + 5, { align: "center" });
-                doc.text("Amount (AED)", 190, y + 5, { align: "center" });
-                y += 8;
-                doc.line(M, y, pageW - M, y);
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(8);
-            }
-
-            let itemQty = parseFloat(item.qty || item.quantity || 0);
-            let itemRate = parseFloat(item.rate || item.price || 0);
-            let itemAmt = parseFloat(item.amt || item.amount || item.total || (itemQty * itemRate));
-
-            let textY = y + 5;
-            doc.text((i + 1).toString(), 16, textY, { align: "center" });
-            doc.text(lines, 24, textY);
-            doc.text(formatMoney(itemQty), 138, textY, { align: "right" });
-            doc.text(item.unit || item.uom || "", 150, textY, { align: "center" });
-            doc.text(formatMoney(itemRate), 178, textY, { align: "right" });
-            doc.text(formatMoney(itemAmt), 198, textY, { align: "right" });
-            
-            totalQty += itemQty;
-            y += rowH;
-        }
-
-        // Close Items Area securely at yLimit
-        drawVertLines(tableStartY, yLimit);
-        doc.line(M, yLimit, pageW - M, yLimit);
-        
-        y = yLimit; 
-        
-        // Calculations
-        let subTotal = invoice.subTotal !== undefined ? invoice.subTotal : (invoice.subtotal !== undefined ? invoice.subtotal : 0);
-        let vatAmt = invoice.tax !== undefined ? invoice.tax : (invoice.vat !== undefined ? invoice.vat : (invoice.outputVat !== undefined ? invoice.outputVat : (subTotal * 0.05)));
-        let grandTotal = invoice.grandTotal !== undefined ? invoice.grandTotal : (invoice.total !== undefined ? invoice.total : (subTotal + vatAmt));
-
-        // Totals Section (24mm height)
-        doc.line(120, y, 120, y + 24);
-        doc.line(180, y, 180, y + 24);
-        
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text(`Total Qty: ${formatMoney(totalQty)}`, 115, y + 5, { align: "right" });
-        doc.text("Sub Total", 177, y + 5, { align: "right" });
-        doc.text(formatMoney(subTotal), 198, y + 5, { align: "right" });
-        y += 8;
-        doc.line(120, y, pageW - M, y);
-        
-        doc.text("OUTPUT VAT @ 5%", 177, y + 5, { align: "right" });
-        doc.text(formatMoney(vatAmt), 198, y + 5, { align: "right" });
-        y += 8;
-        doc.line(120, y, pageW - M, y);
-        
-        doc.text("GRAND TOTAL", 177, y + 5, { align: "right" });
-        doc.text(`AED ${formatMoney(grandTotal)}`, 198, y + 5, { align: "right" });
-        y += 8;
-        doc.line(M, y, pageW - M, y);
-        
-        // Amount in Words (11mm height)
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text("Amount Chargeable (in words):", 12, y + 4);
-        doc.setFont("helvetica", "bold");
-        let wordsStr = typeof numberToWords === 'function' ? numberToWords(grandTotal) : "";
-        doc.text(`AED ${wordsStr} Only`, 12, y + 9);
-        y += 11;
-        doc.line(M, y, pageW - M, y);
-
-        // Bank Details & Signature (30mm height)
-        doc.line(120, y, 120, maxPageY);
-        doc.setFont("helvetica", "bold");
-        doc.text("Company's Bank Details", 12, y + 4);
-        doc.setFont("helvetica", "normal");
-        doc.text("A/c Name:", 12, y + 9);
-        doc.text("Bank Name:", 12, y + 13);
-        doc.text("A/c No.:", 12, y + 17);
-        doc.text("IBAN:", 12, y + 21);
-        
-        doc.setFont("helvetica", "bold");
-        doc.text(settings.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
-        doc.text(settings.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
-        doc.text(settings.bankAc || "1215754581", 35, y + 17);
-        doc.text(settings.bankIban || "AE540000001215754581", 35, y + 21);
-
-        doc.text("For Al Bowry Carpentry LLC", 195, y + 4, { align: "right" });
-        doc.text("Authorized Signatory", 195, y + 28, { align: "right" });
-        
-        const stampImg = await getBase64ImageFromURL(settings.stampUrl);
-        if (stampImg) {
-            doc.addImage(stampImg, 'PNG', 145, y + 5, 45, 22);
-        }
-
-        if (preview) {
-            return doc.output('datauristring');
-        } else {
-            doc.save(`${invNo || 'Invoice'}.pdf`);
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Error generating Standard PDF: " + e.message);
+    // PROJECT TEXT
+    if (data.projectText) {
+        y += 4.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(data.projectText, M + 3, y); y += 3.5; hLine(y);
     }
-}
 
-// ==========================================
-// 2. MANUAL INVOICE GENERATOR
-// ==========================================
-async function generateManualInvoicePDF(data, preview = false) {
-    try {
-        if (!window.jspdf || !window.jspdf.jsPDF) {
-            throw new Error("jsPDF library not loaded.");
-        }
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        const settings = getSafeSettings();
+    // TABLE HEADERS
+    checkPageBreak(25);
+    const headerTop = y;
+    doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+    drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+    drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+    drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+    y += 7; hLine(y);
+
+    const itemsStartY = y;
+    (data.items || []).forEach((item) => {
+        const descLines = doc.splitTextToSize(item.c2 || '', col.desc.w - 4);
+        const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
         
-        const M = 10;
-        const pageW = 210;
-        const pageH = 297;
-        const W = pageW - 2 * M;
-        const W_HALF = pageW / 2;
-        const primaryColor = [26, 58, 92];
-
-        let y = M;
-        const maxPageY = pageH - M; // 287
+        // 🔥 This checks if this row will break the page. If yes, makes new page!
+        checkPageBreak(rowH + 2); 
         
-        // Dynamically calculate footer height for Manual Invoices
-        const numTotals = data.totals ? data.totals.length : 0;
-        const footerH = (numTotals * 8) + 11 + 30; 
-        const yLimit = maxPageY - footerH;
+        const rowTop = y;
+        drawCell(item.c1 || '', col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+        descLines.forEach((line, i) => doc.text(line, col.desc.x + 2, y + 4.5 + (i * 4)));
+        drawCell(item.c3 || '', col.qty.x + col.qty.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        drawCell(item.c4 || '', col.unit.x + col.unit.w / 2, y + 4.5, { size: 8.5, align: 'center' });
+        drawCell(item.c5 || '', col.rate.x + col.rate.w - 2, y + 4.5, { size: 8.5, align: 'right' });
+        drawCell(item.c6 || '', col.amount.x + col.amount.w - 2, y + 4.5, { bold: true, size: 8.5, align: 'right' });
 
-        const drawFrame = () => {
-            doc.setDrawColor(...primaryColor);
-            doc.setLineWidth(0.6);
-            doc.rect(M, M, W, pageH - 2 * M, 'S');
-        };
+        y += rowH;
+        vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
+    });
 
-        // Header Structure
-        drawFrame();
-        doc.setDrawColor(...primaryColor);
-        doc.setLineWidth(0.6);
-        doc.rect(M, y, W, 8, 'S');
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(...primaryColor);
-        doc.text((data.meta.docTitle || "INVOICE").toUpperCase(), W_HALF, y + 5.5, { align: "center" });
-
-        y += 8;
-        const logoImg = await getBase64ImageFromURL(settings.logoUrl || 'public/logo.png');
-        if (logoImg) doc.addImage(logoImg, 'PNG', W_HALF - 12, y + 2, 24, 24);
-
-        y += 28;
-        doc.setFontSize(14);
-        doc.text(settings.companyName || "AL BOWRY CARPENTRY LLC", W_HALF, y, { align: "center" });
-        y += 5;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text(settings.address || "Sharjah, United Arab Emirates", W_HALF, y, { align: "center" });
-        y += 5;
-        doc.text(`TRN: ${settings.trn || "100391261300003"}`, W_HALF, y, { align: "center" });
-        
-        y += 5;
-        doc.setLineWidth(0.4);
-        doc.line(M, y, pageW - M, y);
-        y += 4;
-
-        // Buyer Area
-        let buyerTopY = y - 4;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.text(data.buyer.title || "Buyer (Bill to):", 12, y);
-        doc.setFontSize(10);
-        y += 5;
-        let leftY = y;
-        
-        const bNameLines = doc.splitTextToSize(data.buyer.name || "", 90);
-        doc.text(bNameLines, 12, leftY);
-        leftY += (bNameLines.length * 5);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        
-        if (data.buyer.address) {
-            const bAddrLines = doc.splitTextToSize(data.buyer.address, 90);
-            doc.text(bAddrLines, 12, leftY);
-            leftY += (bAddrLines.length * 4);
-        }
-        if (data.buyer.trn) {
-            doc.setFont("helvetica", "bold");
-            doc.text(`TRN: ${data.buyer.trn}`, 12, leftY);
-            leftY += 5;
-        }
-
-        let rightY = buyerTopY + 5;
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        if (data.meta.projectText) {
-            let pLines = doc.splitTextToSize(data.meta.projectText, 80);
-            doc.text(pLines, 105, rightY);
-            rightY += (pLines.length * 4) + 2;
-        }
-        doc.setFont("helvetica", "bold");
-        doc.text("Invoice No. :", 105, rightY);
-        doc.text(data.meta.invoiceNo || "", 135, rightY);
-        rightY += 6;
-        doc.text("Dated :", 105, rightY);
-        doc.text(data.meta.date || "", 135, rightY);
-        rightY += 6;
-        
-        y = Math.max(leftY, rightY) + 2;
-        doc.line(M, y, pageW - M, y);
-        doc.line(100, buyerTopY, 100, y); 
-        
-        // Columns setup
-        let numCols = data.headers.length;
-        let cols = [];
-        let currentX = M;
-        let col0W = 12; 
-        
-        if (numCols === 6) {
-            cols = [
-                { label: data.headers[0], x: currentX, w: 12 },
-                { label: data.headers[1], x: currentX += 12, w: 98 },
-                { label: data.headers[2], x: currentX += 98, w: 20 },
-                { label: data.headers[3], x: currentX += 20, w: 20 },
-                { label: data.headers[4], x: currentX += 20, w: 20 },
-                { label: data.headers[5], x: currentX += 20, w: 20 }
-            ];
-        } else {
-            let remainingW = W - col0W;
-            let dynamicW = remainingW / (numCols - 1);
-            cols.push({ label: data.headers[0], x: M, w: col0W });
-            currentX += col0W;
-            for(let i = 1; i < numCols; i++) {
-                cols.push({ label: data.headers[i], x: currentX, w: dynamicW });
-                currentX += dynamicW;
-            }
-        }
-
-        const drawManualVertLines = (startY, endY) => {
-            doc.setDrawColor(...primaryColor);
-            doc.setLineWidth(0.4);
-            for (let i = 1; i < cols.length; i++) {
-                doc.line(cols[i].x, startY, cols[i].x, endY);
-            }
-        };
-
-        // Table Headers
-        let tableStartY = y;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        y += 5;
-        cols.forEach((c, idx) => {
-            let align = (idx === 0 || idx > 1) ? "center" : "left";
-            let tx = align === "center" ? c.x + (c.w / 2) : c.x + 2;
-            doc.text(c.label || "", tx, y, { align: align });
-        });
-        y += 3;
-        doc.line(M, y, pageW - M, y);
-
-        // Items Loop
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-
-        for (let i = 0; i < data.items.length; i++) {
-            const itemCells = data.items[i];
-            let maxLines = 1;
-            let cellTexts = [];
-
-            itemCells.forEach((text, idx) => {
-                let lines = doc.splitTextToSize(text || "", cols[idx].w - 2);
-                if (lines.length > maxLines) maxLines = lines.length;
-                cellTexts.push(lines);
-            });
-
-            const rowH = Math.max(8, maxLines * 5 + 3);
-
-            if (y + rowH > yLimit) {
-                drawManualVertLines(tableStartY, maxPageY);
-                doc.setFontSize(8);
-                doc.text("Continued on next page...", W_HALF, maxPageY - 2, { align: "center" });
-
-                doc.addPage();
-                drawFrame();
-                
-                y = M;
-                tableStartY = y;
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                cols.forEach((c, idx) => {
-                    let align = (idx === 0 || idx > 1) ? "center" : "left";
-                    let tx = align === "center" ? c.x + (c.w / 2) : c.x + 2;
-                    doc.text(c.label || "", tx, y + 5, { align: align });
-                });
-                y += 8;
-                doc.line(M, y, pageW - M, y);
-                doc.setFont("helvetica", "normal");
-                doc.setFontSize(8);
-            }
-
-            let textY = y + 5;
-            cellTexts.forEach((lines, idx) => {
-                let align = (idx === 0 || idx > 1) ? "center" : "left";
-                if (idx >= cols.length - 2 && idx > 1) align = "right"; 
-                
-                let tx = cols[idx].x;
-                if (align === "center") tx += (cols[idx].w / 2);
-                else if (align === "right") tx += cols[idx].w - 2;
-                else tx += 2;
-                
-                doc.text(lines, tx, textY, { align: align });
-            });
-            y += rowH;
-        }
-
-        // Close manual items securely
-        drawManualVertLines(tableStartY, yLimit);
-        doc.line(M, yLimit, pageW - M, yLimit);
-        
-        y = yLimit;
-
-        // Totals Area
-        let splitIndex = (cols.length === 6) ? 2 : (cols.length > 3 ? cols.length - 3 : 1);
-        let splitX = cols[splitIndex].x;
-        let lastColX = cols[cols.length - 1].x;
-
-        doc.line(splitX, y, splitX, y + (numTotals * 8));
-        doc.line(lastColX, y, lastColX, y + (numTotals * 8));
-
-        doc.setFontSize(9);
-        for (let t = 0; t < numTotals; t++) {
-            let isLast = (t === numTotals - 1);
-            doc.setFont("helvetica", "bold");
-            doc.text(data.totals[t].label || "", lastColX - 3, y + 5, { align: "right" });
-            doc.text(formatMoney(data.totals[t].amount), pageW - M - 2, y + 5, { align: "right" });
-            y += 8;
-            if (!isLast) {
-                doc.line(splitX, y, pageW - M, y);
-            } else {
-                doc.line(M, y, pageW - M, y);
-            }
-        }
-
-        // Words Area
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text("Amount Chargeable (in words):", 12, y + 4);
-        doc.setFont("helvetica", "bold");
-        doc.text(data.amountInWords || "", 12, y + 9);
-        y += 11;
-        doc.line(M, y, pageW - M, y);
-
-        // Bank Area
-        doc.line(splitX, y, splitX, maxPageY);
-        doc.setFont("helvetica", "bold");
-        doc.text("Company's Bank Details", 12, y + 4);
-        doc.setFont("helvetica", "normal");
-        doc.text("A/c Name:", 12, y + 9);
-        doc.text("Bank Name:", 12, y + 13);
-        doc.text("A/c No.:", 12, y + 17);
-        doc.text("IBAN:", 12, y + 21);
-        
-        doc.setFont("helvetica", "bold");
-        doc.text(settings.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
-        doc.text(settings.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
-        doc.text(settings.bankAc || "1215754581", 35, y + 17);
-        doc.text(settings.bankIban || "AE540000001215754581", 35, y + 21);
-
-        doc.text("For Al Bowry Carpentry LLC", 195, y + 4, { align: "right" });
-        doc.text("Authorized Signatory", 195, y + 28, { align: "right" });
-        
-        const stampImg = await getBase64ImageFromURL(settings.stampUrl);
-        if (stampImg) {
-            let signCenter = splitX + ((pageW - M - splitX) / 2);
-            doc.addImage(stampImg, 'PNG', signCenter - 22, y + 5, 45, 22);
-        }
-
-        if (preview) {
-            return doc.output('datauristring');
-        } else {
-            doc.save(`${data.meta.invoiceNo || 'Manual_Invoice'}.pdf`);
-        }
-    } catch (e) {
-        console.error(e);
-        alert("Error generating Manual PDF: " + e.message);
+    const minH = 28;
+    if ((y - itemsStartY) < minH && currentPage === 1) {
+        let eH = minH - (y - itemsStartY);
+        vLine(col.desc.x, y, y + eH); vLine(col.qty.x, y, y + eH); vLine(col.unit.x, y, y + eH); vLine(col.rate.x, y, y + eH); vLine(col.amount.x, y, y + eH);
+        y += eH;
     }
+    hLine(y);
+
+    // MANUAL TOTALS BOX
+    const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
+    const totalsBlockH = tLines.length * 4.5 + 15;
+    checkPageBreak(totalsBlockH); // Ensures totals don't get cut
+
+    const totalsTop = y; y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+    tLines.forEach(line => { doc.text(line, M + W - 2, y, { align: 'right' }); y += 4.5; });
+    vLine(col.amount.x, totalsTop, y); hLine(y);
+
+    // MANUAL GRAND TOTAL
+    doc.setFillColor(242, 246, 249); doc.rect(M, y, W, 8.5, 'F'); y += 5.8;
+    drawCell(data.grandTotalLabel || 'GRAND TOTAL', col.amount.x - 2, y, { bold: true, size: 11, align: 'right', color: [26, 58, 92] });
+    drawCell(data.grandTotalValue || '', M + W - 2, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
+    y += 2.7; vLine(col.amount.x, y - 8.5, y); hLine(y);
+
+    // AMOUNT IN WORDS
+    checkPageBreak(45);
+    y += 4; drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
+    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' }); y += 5;
+    drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
+
+    // BANK + STAMP
+    const bottomBoxTop = y; let bankY = y + 4;
+    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 }); bankY += 4.5;
+    const bx = M + 3, by = M + 28;
+    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
+    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
+
+    const stampNeededH = 4 + 34 + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
+    drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
+    if (settings.signatureUrl) {
+        try { const rW = (M + W) - splitX; const sigX = splitX + (rW - 58) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, 58, 34); } catch (e) {}
+    }
+    drawCell('Authorised Signatory', M + W - 3, boxBottomY - 3, { bold: true, size: 9, align: 'right' });
+    vLine(splitX, bottomBoxTop, boxBottomY); hLine(boxBottomY); y = boxBottomY;
+
+    // FOOTER
+    y += 4; const cw = W / 3;
+    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 }); drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
+    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
+    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
+    y += 3.5; hLine(y);
+
+    // 🔥 FINAL OUTER BORDER - Perfectly enclosed
+    doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
+    drawCell('This is a Computer Generated Document', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
+
+    if (preview) { window.open(doc.output('bloburl'), '_blank'); } 
+    else { doc.save(`Manual_${data.docTitle || 'Doc'}.pdf`); showToast('PDF downloaded!', 'success'); }
 }
