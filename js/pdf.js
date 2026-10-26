@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - Advanced PDF Engine v3
-// Full-Page Borders on EVERY page + Perfect Item Flow
+// AL BOWRY CARPENTRY LLC - Advanced PDF Engine
+// Auto-Pagination, Dynamic Borders, Premium Layout, Fixed Full-Page Box
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -11,11 +11,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = 210, pageH = 297, M = 10, W = pageW - 2 * M;
-    const contentBottom = pageH - M;          // 287
-    const footerReserve = 92;                 // space needed for totals+words+bank+sign+contact
     let y = M;
-    let currentPage = 1;
-    let pages = [];                           // track startY of content per page if needed
 
     const col = {
         sl: { x: M, w: 12 }, desc: { x: M + 12, w: 78 }, qty: { x: M + 90, w: 18 },
@@ -35,59 +31,24 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
 
-    // Draw FULL-PAGE outer border (always top to bottom)
-    const drawFullPageBorder = () => {
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.6);
-        doc.rect(M, M, W, pageH - 2 * M, 'S');
-    };
-
-    // Close current page table lines + full border, then start new page with table header
-    const newPageWithTableHeader = (isContinuation = true) => {
-        // stretch remaining vertical lines to near bottom before closing
-        const closeY = contentBottom - 8;
-        if (y < closeY) {
-            vLine(col.desc.x, y, closeY);
-            vLine(col.qty.x, y, closeY);
-            vLine(col.unit.x, y, closeY);
-            vLine(col.rate.x, y, closeY);
-            vLine(col.amount.x, y, closeY);
-            hLine(closeY);
-            y = closeY;
-        }
-        drawFullPageBorder();
-        // page number
-        drawCell(`Page ${currentPage}`, pageW / 2, pageH - 5, { size: 7.5, align: 'center', color: [120, 120, 120] });
-
-        doc.addPage();
-        currentPage++;
-        y = M;
-
-        // mini continuation header
-        if (isContinuation) {
-            drawCell('TAX INVOICE (Continued)', pageW / 2, y + 5, { bold: true, size: 11, align: 'center', color: [26, 58, 92] });
-            y += 8;
-            hLine(y);
-            y += 2;
-        }
-
-        // table header again
-        doc.setFillColor(235, 235, 235);
-        doc.rect(M, y, W, 7, 'F');
-        drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
-        drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
-        y += 7;
-        hLine(y);
-    };
-
+    // PAGE BREAK LOGIC
+    let currentPage = 1;
     const checkPageBreak = (neededH) => {
-        // leave room so we never cut mid-row; on last content pages we still allow footer reserve later
-        if (y + neededH > contentBottom - 12) {
-            newPageWithTableHeader(true);
+        if (y + neededH > pageH - M - 10) {
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); // Close outer box
+            doc.addPage();
+            currentPage++;
+            y = M;
+            
+            // Re-draw table header
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
         }
     };
 
@@ -97,20 +58,14 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
     // ═══ LOGO + COMPANY ═══
     y += 3;
-    if (settings.logoUrl) {
-        try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {}
-    }
+    if (settings.logoUrl) { try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {} }
     y += 24;
-    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] });
-    y += 4.5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] }); y += 4.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
     const addrLines = doc.splitTextToSize(settings.address || '', 130);
     addrLines.forEach(line => { doc.text(line, pageW / 2, y, { align: 'center' }); y += 3.8; });
-    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' });
-    y += 4.5;
-    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' });
-    y += 4; hLine(y);
+    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' }); y += 4.5;
+    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' }); y += 4; hLine(y);
 
     // ═══ BUYER + INVOICE INFO ═══
     const buyerBoxTop = y;
@@ -123,35 +78,22 @@ function generateInvoicePDF(invoiceId, preview = false) {
     if (invoice.customerPhone) { doc.text(`Phone: ${invoice.customerPhone}`, M + 3, leftY); leftY += 3.8; }
     if (invoice.customerTRN) { drawCell(`TRN: ${invoice.customerTRN}`, M + 3, leftY, { bold: true, size: 8.5 }); leftY += 4; }
 
-    let rightY = y + 5;
-    const labelX = splitX + 4, valueX = splitX + 30;
-    drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 9 });
-    drawCell(invoice.invoiceNumber, valueX, rightY, { bold: true, size: 9, color: [26, 58, 92] }); rightY += 5.5;
-    drawCell('Dated:', labelX, rightY, { bold: true, size: 9 });
-    drawCell(formatDate(invoice.date), valueX, rightY, { size: 9 }); rightY += 5.5;
-    drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 9 });
-    drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 9 }); rightY += 5.5;
-    if (invoice.lpoNumber) {
-        drawCell('LPO No.:', labelX, rightY, { bold: true, size: 9 });
-        drawCell(invoice.lpoNumber, valueX, rightY, { size: 9 }); rightY += 5.5;
-    }
+    let rightY = y + 5; const labelX = splitX + 4, valueX = splitX + 30;
+    drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.invoiceNumber, valueX, rightY, { bold: true, size: 9, color: [26, 58, 92] }); rightY += 5.5;
+    drawCell('Dated:', labelX, rightY, { bold: true, size: 9 }); drawCell(formatDate(invoice.date), valueX, rightY, { size: 9 }); rightY += 5.5;
+    drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 9 }); rightY += 5.5;
+    if (invoice.lpoNumber) { drawCell('LPO No.:', labelX, rightY, { bold: true, size: 9 }); drawCell(invoice.lpoNumber, valueX, rightY, { size: 9 }); rightY += 5.5; }
 
     const buyerBoxH = Math.max(leftY, rightY) - buyerBoxTop + 2;
-    vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH);
-    y = buyerBoxTop + buyerBoxH;
-    hLine(y);
+    vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH); y = buyerBoxTop + buyerBoxH; hLine(y);
 
     if (invoice.projectName) {
-        y += 4;
-        drawCell('Project:', M + 3, y, { bold: true, size: 9 });
-        drawCell(invoice.projectName, M + 20, y, { size: 9 });
-        y += 3.5; hLine(y);
+        y += 4; drawCell('Project:', M + 3, y, { bold: true, size: 9 }); drawCell(invoice.projectName, M + 20, y, { size: 9 }); y += 3.5; hLine(y);
     }
 
-    // ═══ ITEMS TABLE HEADER ═══
-    checkPageBreak(20);
-    doc.setFillColor(235, 235, 235);
-    doc.rect(M, y, W, 7, 'F');
+    // ═══ ITEMS TABLE ═══
+    checkPageBreak(25);
+    doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
     drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
     drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
     drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
@@ -161,29 +103,16 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 7; hLine(y);
 
     let totalQtyCount = 0;
-    const items = invoice.items || [];
-
-    items.forEach((item, idx) => {
+    (invoice.items || []).forEach((item, idx) => {
         const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
-        const rowH = Math.max(6.5, descLines.length * 3.8 + 2.5);
-
-        // if this row + a little buffer won't fit → new full page with table header
-        if (y + rowH > contentBottom - 12) {
-            newPageWithTableHeader(true);
-        }
-
-        const rowTop = y;
-        totalQtyCount += parseFloat(item.qty || 0);
-
+        const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
+        checkPageBreak(rowH + 2);
+        
+        const rowTop = y; totalQtyCount += parseFloat(item.qty || 0);
         drawCell(String(idx + 1), col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
-        doc.text(descLines[0] || '', col.desc.x + 2, y + 4.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        for (let i = 1; i < descLines.length; i++) {
-            doc.text(descLines[i], col.desc.x + 2, y + 4.5 + (i * 3.5));
-        }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.text(descLines[0] || '', col.desc.x + 2, y + 4.5);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+        for (let i = 1; i < descLines.length; i++) { doc.text(descLines[i], col.desc.x + 2, y + 4.5 + (i * 3.5)); }
 
         drawCell(formatNum(item.qty), col.qty.x + col.qty.w / 2, y + 4.5, { size: 8.5, align: 'center' });
         drawCell(item.unit || 'Nos', col.unit.x + col.unit.w / 2, y + 4.5, { size: 8.5, align: 'center' });
@@ -191,147 +120,97 @@ function generateInvoicePDF(invoiceId, preview = false) {
         drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 2, y + 4.5, { bold: true, size: 8.5, align: 'right' });
 
         y += rowH;
-        vLine(col.desc.x, rowTop, y);
-        vLine(col.qty.x, rowTop, y);
-        vLine(col.unit.x, rowTop, y);
-        vLine(col.rate.x, rowTop, y);
-        vLine(col.amount.x, rowTop, y);
+        vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
 
-    // ═══ AFTER ALL ITEMS: decide if footer fits on this page ═══
-    if (y + footerReserve > contentBottom - 5) {
-        // not enough room → finish this page as full table page, move footer to next
-        newPageWithTableHeader(true);
+    // 🔥 FIX: AUTO-STRETCH TABLE TO PUSH FOOTER TO BOTTOM
+    const totalFooterH = 98; // Exact Space needed for Totals, Words, Bank, Signature
+    
+    if (y + totalFooterH > pageH - M - 10) {
+        // Not enough space for footer, stretch table to end of THIS page and force break
+        const stretchY = pageH - M - 15;
+        vLine(col.desc.x, y, stretchY); vLine(col.qty.x, y, stretchY); vLine(col.unit.x, y, stretchY); vLine(col.rate.x, y, stretchY); vLine(col.amount.x, y, stretchY);
+        y = stretchY;
+        checkPageBreak(pageH); // Force new page
     }
 
-    // Stretch empty table area so footer sits near bottom (professional look)
-    const stretchTo = contentBottom - footerReserve;
-    if (y < stretchTo) {
-        vLine(col.desc.x, y, stretchTo);
-        vLine(col.qty.x, y, stretchTo);
-        vLine(col.unit.x, y, stretchTo);
-        vLine(col.rate.x, y, stretchTo);
-        vLine(col.amount.x, y, stretchTo);
-        y = stretchTo;
+    // Stretch table on the final page so outer box becomes full size
+    const targetY = pageH - M - totalFooterH;
+    if (y < targetY) {
+        vLine(col.desc.x, y, targetY); vLine(col.qty.x, y, targetY); vLine(col.unit.x, y, targetY); vLine(col.rate.x, y, targetY); vLine(col.amount.x, y, targetY);
+        y = targetY;
     }
     hLine(y);
 
     // ═══ TOTALS ═══
-    const totalsTop = y;
-    y += 4.5;
-    const labelAlign = col.amount.x - 2;
-    const valueAlign = col.amount.x + col.amount.w - 2;
+    const totalsTop = y; y += 4.5;
+    const labelAlign = col.amount.x - 2, valueAlign = col.amount.x + col.amount.w - 2;
 
     drawCell('Total Qty:', col.desc.x + col.desc.w - 2, y, { bold: true, size: 8, align: 'right', color: [100, 100, 100] });
     drawCell(formatNum(totalQtyCount), col.qty.x + col.qty.w / 2, y, { bold: true, size: 9, align: 'center' });
-    drawCell('Sub Total', labelAlign, y, { bold: true, size: 9.5, align: 'right' });
-    drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 9.5, align: 'right' });
-    y += 4.5;
+    drawCell('Sub Total', labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5;
 
-    if (invoice.discount > 0) {
-        drawCell('Discount', labelAlign, y, { bold: true, size: 9.5, align: 'right' });
-        drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 9.5, align: 'right' });
-        y += 4.5;
-    }
-    if (invoice.vatEnabled) {
-        drawCell(`OUTPUT VAT @ ${invoice.vatRate || 5}%`, labelAlign, y, { bold: true, size: 9.5, align: 'right' });
-        drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 9.5, align: 'right' });
-        y += 4.5;
-    }
+    if (invoice.discount > 0) { drawCell('Discount', labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5; }
+    if (invoice.vatEnabled) { drawCell(`OUTPUT VAT @ ${invoice.vatRate || 5}%`, labelAlign, y, { bold: true, size: 9.5, align: 'right' }); drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 9.5, align: 'right' }); y += 4.5; }
     if (invoice.roundOff > 0) {
         drawCell('Round Off', labelAlign, y, { size: 9.5, align: 'right' });
-        drawCell(`${invoice.roundOffType === 'add' ? '(+)' : '(-)'} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 9.5, align: 'right' });
-        y += 4.5;
+        drawCell(`${invoice.roundOffType === 'add' ? '(+)' : '(-)'} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 9.5, align: 'right' }); y += 4.5;
     }
-    y += 0.5;
-    vLine(col.amount.x, totalsTop, y);
-    hLine(y);
+    y += 0.5; vLine(col.amount.x, totalsTop, y); hLine(y);
 
     // ═══ GRAND TOTAL ═══
-    doc.setFillColor(242, 246, 249);
-    doc.rect(M, y, W, 8.5, 'F');
-    y += 5.8;
+    doc.setFillColor(242, 246, 249); doc.rect(M, y, W, 8.5, 'F'); y += 5.8;
     drawCell('GRAND TOTAL', labelAlign, y, { bold: true, size: 11, align: 'right', color: [26, 58, 92] });
     drawCell(`AED ${formatNum(invoice.grandTotal)}`, valueAlign, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
-    y += 2.7;
-    vLine(col.amount.x, y - 8.5, y);
-    hLine(y);
+    y += 2.7; vLine(col.amount.x, y - 8.5, y); hLine(y);
 
     // ═══ AMOUNT IN WORDS ═══
-    y += 4;
-    drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
-    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' });
-    y += 5;
-    drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10, color: [26, 58, 92] });
-    y += 3.5;
-    hLine(y);
+    y += 4; drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
+    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' }); y += 5;
+    drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
 
-    // ═══ BANK + SIGNATURE ═══
-    const bottomBoxTop = y;
-    let bankY = y + 4;
-    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 });
-    bankY += 4.5;
+    // ═══ BANK + STAMP ═══
+    const bottomBoxTop = y; let bankY = y + 4;
+    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 }); bankY += 4.5;
     const bx = M + 3, by = M + 28;
-    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
-    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
-    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
-    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
+    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
+    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
 
-    const boxBottomY = Math.max(bankY + 1, bottomBoxTop + 4 + SIG_H + 5);
+    const stampNeededH = 4 + SIG_H + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
     if (settings.signatureUrl) {
-        try {
-            const rW = (M + W) - splitX;
-            const sigX = splitX + (rW - SIG_W) / 2;
-            doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H);
-        } catch (e) {}
+        try { const rW = (M + W) - splitX; const sigX = splitX + (rW - SIG_W) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H); } catch (e) {}
     }
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 3, { bold: true, size: 9, align: 'right' });
-    vLine(splitX, bottomBoxTop, boxBottomY);
-    hLine(boxBottomY);
-    y = boxBottomY;
+    vLine(splitX, bottomBoxTop, boxBottomY); hLine(boxBottomY); y = boxBottomY;
 
     // ═══ CONTACT FOOTER ═══
-    y += 4;
-    const cw = W / 3;
-    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
-    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
-    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
-    y += 3.5;
-    hLine(y);
+    y += 4; const cw = W / 3;
+    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 }); drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
+    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
+    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
+    y += 3.5; hLine(y);
 
-    // FINAL full-page border + page no + computer generated note
-    drawFullPageBorder();
-    drawCell(`Page ${currentPage}`, pageW / 2, pageH - 5, { size: 7.5, align: 'center', color: [120, 120, 120] });
-    drawCell('This is a Computer Generated Invoice', pageW / 2, y + 4, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
+    // CLOSE FINAL PAGE BORDER (Ab ye 100% full height ka banega stretch logic ki wajah se)
+    doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
+    drawCell('This is a Computer Generated Invoice', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
 
-    if (preview) {
-        window.open(doc.output('bloburl'), '_blank');
-    } else {
-        doc.save(`Invoice_${(invoice.invoiceNumber || 'INV').replace(/\//g, '-')}.pdf`);
-        showToast('PDF downloaded!', 'success');
-    }
+    if (preview) { window.open(doc.output('bloburl'), '_blank'); } 
+    else { doc.save(`Invoice_${(invoice.invoiceNumber || 'INV').replace(/\//g, '-')}.pdf`); showToast('PDF downloaded!', 'success'); }
 }
 
 
 // ═══════════════════════════════════════════════════════
-// MANUAL INVOICE - Same full-page multi-page engine
+// NEW: ADVANCED MANUAL INVOICE GENERATOR (100% Custom Layout)
 // ═══════════════════════════════════════════════════════
 function generateManualInvoicePDF(data, preview = false) {
     const settings = DB.getSettings();
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = 210, pageH = 297, M = 10, W = pageW - 2 * M;
-    const contentBottom = pageH - M;
     let y = M;
-    let currentPage = 1;
 
     const col = {
         sl: { x: M, w: 12 }, desc: { x: M + 12, w: 78 }, qty: { x: M + 90, w: 18 },
@@ -342,8 +221,7 @@ function generateManualInvoicePDF(data, preview = false) {
 
     const drawCell = (text, x, yPos, opts = {}) => {
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
-        doc.setFontSize(opts.size || 9);
-        doc.setTextColor(...(opts.color || [0, 0, 0]));
+        doc.setFontSize(opts.size || 9); doc.setTextColor(...(opts.color || [0, 0, 0]));
         doc.text(String(text || ''), x, yPos, { align: opts.align || 'left' });
     };
 
@@ -351,65 +229,42 @@ function generateManualInvoicePDF(data, preview = false) {
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
 
-    const drawFullPageBorder = () => {
-        doc.setDrawColor(0);
-        doc.setLineWidth(0.6);
-        doc.rect(M, M, W, pageH - 2 * M, 'S');
-    };
-
-    const newPageWithTableHeader = () => {
-        const closeY = contentBottom - 8;
-        if (y < closeY) {
-            vLine(col.desc.x, y, closeY);
-            vLine(col.qty.x, y, closeY);
-            vLine(col.unit.x, y, closeY);
-            vLine(col.rate.x, y, closeY);
-            vLine(col.amount.x, y, closeY);
-            hLine(closeY);
-            y = closeY;
+    // PAGE BREAK LOGIC FOR MANUAL PDF
+    let currentPage = 1;
+    const checkPageBreak = (neededH) => {
+        if (y + neededH > pageH - M - 10) {
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); 
+            doc.addPage();
+            currentPage++;
+            y = M;
+            
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
         }
-        drawFullPageBorder();
-        drawCell(`Page ${currentPage}`, pageW / 2, pageH - 5, { size: 7.5, align: 'center', color: [120, 120, 120] });
-
-        doc.addPage();
-        currentPage++;
-        y = M;
-
-        drawCell((data.docTitle || 'TAX INVOICE') + ' (Continued)', pageW / 2, y + 5, { bold: true, size: 11, align: 'center', color: [26, 58, 92] });
-        y += 8; hLine(y); y += 2;
-
-        doc.setFillColor(235, 235, 235);
-        doc.rect(M, y, W, 7, 'F');
-        drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
-        drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-        drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
-        y += 7; hLine(y);
     };
 
     // TITLE
     drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
     y += 9; hLine(y);
 
-    // COMPANY
+    // COMPANY INFO
     y += 3;
-    if (settings.logoUrl) {
-        try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {}
-    }
+    if (settings.logoUrl) { try { doc.addImage(settings.logoUrl, 'PNG', pageW / 2 - 16, y, 32, 22); } catch (e) {} }
     y += 24;
-    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] });
-    y += 4.5;
+    drawCell(settings.companyName.toUpperCase(), pageW / 2, y, { bold: true, size: 15, align: 'center', color: [26, 58, 92] }); y += 4.5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
     const addrLines = doc.splitTextToSize(settings.address || '', 130);
     addrLines.forEach(line => { doc.text(line, pageW / 2, y, { align: 'center' }); y += 3.8; });
-    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' });
-    y += 4.5;
-    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' });
-    y += 4; hLine(y);
+    doc.text('United Arab Emirates', pageW / 2, y, { align: 'center' }); y += 4.5;
+    drawCell(`TRN: ${settings.trn || 'Not Set'}`, pageW / 2, y, { bold: true, size: 9.5, align: 'center' }); y += 4; hLine(y);
 
-    // BUYER + META
+    // CUSTOM TEXT BLOCKS
     const buyerBoxTop = y;
     let leftY = y + 5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
@@ -422,19 +277,16 @@ function generateManualInvoicePDF(data, preview = false) {
 
     const buyerBoxH = Math.max(leftY, rightY) - buyerBoxTop + 2;
     vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH);
-    y = buyerBoxTop + buyerBoxH;
-    hLine(y);
+    y = buyerBoxTop + buyerBoxH; hLine(y);
 
     if (data.projectText) {
-        y += 4.5;
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        doc.text(data.projectText, M + 3, y);
-        y += 3.5; hLine(y);
+        y += 4.5; doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(data.projectText, M + 3, y); y += 3.5; hLine(y);
     }
 
-    // TABLE HEADER
-    doc.setFillColor(235, 235, 235);
-    doc.rect(M, y, W, 7, 'F');
+    // TABLE HEADERS
+    checkPageBreak(25);
+    doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
     drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
     drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
     drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
@@ -446,11 +298,8 @@ function generateManualInvoicePDF(data, preview = false) {
     (data.items || []).forEach((item) => {
         const descLines = doc.splitTextToSize(item.c2 || '', col.desc.w - 4);
         const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
-
-        if (y + rowH > contentBottom - 12) {
-            newPageWithTableHeader();
-        }
-
+        checkPageBreak(rowH + 2); 
+        
         const rowTop = y;
         drawCell(item.c1 || '', col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
@@ -461,110 +310,74 @@ function generateManualInvoicePDF(data, preview = false) {
         drawCell(item.c6 || '', col.amount.x + col.amount.w - 2, y + 4.5, { bold: true, size: 8.5, align: 'right' });
 
         y += rowH;
-        vLine(col.desc.x, rowTop, y);
-        vLine(col.qty.x, rowTop, y);
-        vLine(col.unit.x, rowTop, y);
-        vLine(col.rate.x, rowTop, y);
-        vLine(col.amount.x, rowTop, y);
+        vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
 
-    // Totals text height estimate
+    // 🔥 FIX: AUTO-STRETCH TABLE FOR MANUAL INVOICE
     const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
-    const totalsBlockH = tLines.length * 4.5 + 12;
-    const manualFooterH = totalsBlockH + 78;
+    const totalsBlockH = tLines.length * 4.5 + 15;
+    const manualFooterH = totalsBlockH + 75; // Total space needed for totals + words + bank + footer
 
-    if (y + manualFooterH > contentBottom - 5) {
-        newPageWithTableHeader();
+    if (y + manualFooterH > pageH - M - 10) {
+        // Stretch table to end of this page and break
+        const stretchY = pageH - M - 15;
+        vLine(col.desc.x, y, stretchY); vLine(col.qty.x, y, stretchY); vLine(col.unit.x, y, stretchY); vLine(col.rate.x, y, stretchY); vLine(col.amount.x, y, stretchY);
+        y = stretchY;
+        checkPageBreak(pageH); // Force new page
     }
 
-    // stretch table to push footer down
-    const stretchTo = contentBottom - manualFooterH;
-    if (y < stretchTo) {
-        vLine(col.desc.x, y, stretchTo);
-        vLine(col.qty.x, y, stretchTo);
-        vLine(col.unit.x, y, stretchTo);
-        vLine(col.rate.x, y, stretchTo);
-        vLine(col.amount.x, y, stretchTo);
-        y = stretchTo;
+    const targetY = pageH - M - manualFooterH;
+    if (y < targetY) {
+        vLine(col.desc.x, y, targetY); vLine(col.qty.x, y, targetY); vLine(col.unit.x, y, targetY); vLine(col.rate.x, y, targetY); vLine(col.amount.x, y, targetY);
+        y = targetY;
     }
     hLine(y);
 
-    // TOTALS
-    const totalsTop = y;
-    y += 4.5;
+    // MANUAL TOTALS BOX
+    const totalsTop = y; y += 4.5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
     tLines.forEach(line => { doc.text(line, M + W - 2, y, { align: 'right' }); y += 4.5; });
-    vLine(col.amount.x, totalsTop, y);
-    hLine(y);
+    vLine(col.amount.x, totalsTop, y); hLine(y);
 
-    // GRAND TOTAL
-    doc.setFillColor(242, 246, 249);
-    doc.rect(M, y, W, 8.5, 'F');
-    y += 5.8;
+    // MANUAL GRAND TOTAL
+    doc.setFillColor(242, 246, 249); doc.rect(M, y, W, 8.5, 'F'); y += 5.8;
     drawCell(data.grandTotalLabel || 'GRAND TOTAL', col.amount.x - 2, y, { bold: true, size: 11, align: 'right', color: [26, 58, 92] });
     drawCell(data.grandTotalValue || '', M + W - 2, y, { bold: true, size: 12, align: 'right', color: [26, 58, 92] });
-    y += 2.7;
-    vLine(col.amount.x, y - 8.5, y);
-    hLine(y);
+    y += 2.7; vLine(col.amount.x, y - 8.5, y); hLine(y);
 
     // AMOUNT IN WORDS
-    y += 4;
-    drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
-    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' });
-    y += 5;
-    drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 10, color: [26, 58, 92] });
-    y += 3.5;
-    hLine(y);
+    y += 4; drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
+    drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' }); y += 5;
+    drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
 
-    // BANK + SIGN
-    const bottomBoxTop = y;
-    let bankY = y + 4;
-    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 });
-    bankY += 4.5;
+    // BANK + STAMP
+    const bottomBoxTop = y; let bankY = y + 4;
+    drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 }); bankY += 4.5;
     const bx = M + 3, by = M + 28;
-    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
-    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
-    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
-    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 });
-    drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
+    drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.companyName, by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('Bank Name:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankName || '-', by, bankY, { size: 8.5 }); bankY += 3.8;
+    drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
+    drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
 
-    const boxBottomY = Math.max(bankY + 1, bottomBoxTop + 4 + SIG_H + 5);
+    const stampNeededH = 4 + 34 + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
     if (settings.signatureUrl) {
-        try {
-            const rW = (M + W) - splitX;
-            const sigX = splitX + (rW - SIG_W) / 2;
-            doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H);
-        } catch (e) {}
+        try { const rW = (M + W) - splitX; const sigX = splitX + (rW - 58) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, 58, 34); } catch (e) {}
     }
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 3, { bold: true, size: 9, align: 'right' });
-    vLine(splitX, bottomBoxTop, boxBottomY);
-    hLine(boxBottomY);
-    y = boxBottomY;
+    vLine(splitX, bottomBoxTop, boxBottomY); hLine(boxBottomY); y = boxBottomY;
 
-    // CONTACT
-    y += 4;
-    const cw = W / 3;
-    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
-    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
-    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 });
-    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
-    y += 3.5;
-    hLine(y);
+    // FOOTER
+    y += 4; const cw = W / 3;
+    drawCell('Contact:', M + 3, y, { bold: true, size: 8.5 }); drawCell(settings.phone || '-', M + 18, y, { size: 8.5 });
+    drawCell('Website:', M + cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.website || '-', M + cw + 18, y, { size: 8.5 });
+    drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
+    y += 3.5; hLine(y);
 
-    drawFullPageBorder();
-    drawCell(`Page ${currentPage}`, pageW / 2, pageH - 5, { size: 7.5, align: 'center', color: [120, 120, 120] });
-    drawCell('This is a Computer Generated Document', pageW / 2, y + 4, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
+    // 🔥 FINAL OUTER BORDER - Ab hamesha properly close hoga aur full page stretch lega
+    doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
+    drawCell('This is a Computer Generated Document', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
 
-    if (preview) {
-        window.open(doc.output('bloburl'), '_blank');
-    } else {
-        doc.save(`Manual_${data.docTitle || 'Doc'}.pdf`);
-        showToast('PDF downloaded!', 'success');
-    }
+    if (preview) { window.open(doc.output('bloburl'), '_blank'); } 
+    else { doc.save(`Manual_${data.docTitle || 'Doc'}.pdf`); showToast('PDF downloaded!', 'success'); }
 }
