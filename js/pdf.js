@@ -27,13 +27,31 @@ function getBase64ImageFromURL(url) {
     });
 }
 
+// Helper: Get Settings safely
+function getSafeSettings() {
+    if (typeof DB !== 'undefined' && typeof DB.getSettings === 'function') {
+        return DB.getSettings();
+    }
+    return JSON.parse(localStorage.getItem('albowry_settings')) || {};
+}
+
 // ==========================================
 // 1. STANDARD INVOICE GENERATOR
 // ==========================================
 async function generateInvoicePDF(invoiceId, preview = false) {
     try {
-        const invoice = DB.getInvoice(invoiceId);
-        if (!invoice) throw new Error("Invoice not found!");
+        // Safe Invoice Fetch (Fixes "DB.getInvoice is not a function")
+        let invoices = [];
+        if (typeof DB !== 'undefined' && typeof DB.getInvoices === 'function') {
+            invoices = DB.getInvoices();
+        } else {
+            invoices = JSON.parse(localStorage.getItem('albowry_invoices')) || [];
+        }
+        
+        const invoice = invoices.find(i => String(i.id) === String(invoiceId));
+        if (!invoice) throw new Error("Invoice not found in Database!");
+
+        const settings = getSafeSettings();
 
         const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
         const M = 10;
@@ -77,20 +95,20 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.text("TAX INVOICE", W_HALF, y + 5.5, { align: "center" });
 
         y += 8;
-        const logoImg = await getBase64ImageFromURL(DB.getSettings().logoUrl || 'public/logo.png');
+        const logoImg = await getBase64ImageFromURL(settings.logoUrl || 'public/logo.png');
         if (logoImg) {
             doc.addImage(logoImg, 'PNG', W_HALF - 12, y + 2, 24, 24);
         }
 
         y += 28;
         doc.setFontSize(14);
-        doc.text(DB.getSettings().companyName, W_HALF, y, { align: "center" });
+        doc.text(settings.companyName || "Al Bowry Carpentry LLC", W_HALF, y, { align: "center" });
         y += 5;
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(DB.getSettings().address, W_HALF, y, { align: "center" });
+        doc.text(settings.address || "", W_HALF, y, { align: "center" });
         y += 5;
-        doc.text(`TRN: ${DB.getSettings().trn}`, W_HALF, y, { align: "center" });
+        doc.text(`TRN: ${settings.trn || ""}`, W_HALF, y, { align: "center" });
         
         y += 5;
         doc.setLineWidth(0.4);
@@ -105,25 +123,30 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.setFontSize(10);
         y += 5;
         let leftY = y;
-        const buyerLines = doc.splitTextToSize(invoice.buyerInfo.name, 90);
+        
+        const bName = invoice.buyerInfo ? invoice.buyerInfo.name : (invoice.customerName || "");
+        const bAddr = invoice.buyerInfo ? invoice.buyerInfo.address : "";
+        const bTrn = invoice.buyerInfo ? invoice.buyerInfo.trn : "";
+
+        const buyerLines = doc.splitTextToSize(bName, 90);
         doc.text(buyerLines, 12, leftY);
         leftY += (buyerLines.length * 5);
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        const addrLines = doc.splitTextToSize(invoice.buyerInfo.address, 90);
+        const addrLines = doc.splitTextToSize(bAddr, 90);
         doc.text(addrLines, 12, leftY);
         leftY += (addrLines.length * 4);
         doc.setFont("helvetica", "bold");
-        doc.text(`TRN: ${invoice.buyerInfo.trn}`, 12, leftY);
+        if (bTrn) doc.text(`TRN: ${bTrn}`, 12, leftY);
         leftY += 5;
 
         let rightY = buyerTopY + 5;
         doc.setFontSize(8);
         doc.text("Invoice No. :", 105, rightY);
-        doc.text(invoice.invoiceNo, 130, rightY);
+        doc.text(invoice.invoiceNo || "", 130, rightY);
         rightY += 6;
         doc.text("Dated :", 105, rightY);
-        doc.text(invoice.date, 130, rightY);
+        doc.text(invoice.date || "", 130, rightY);
         rightY += 6;
         doc.text("Mode/Terms :", 105, rightY);
         doc.setFont("helvetica", "normal");
@@ -154,10 +177,11 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
         let totalQty = 0;
+        let itemsArray = invoice.items || [];
 
-        for (let i = 0; i < invoice.items.length; i++) {
-            const item = invoice.items[i];
-            const lines = doc.splitTextToSize(item.part, 94);
+        for (let i = 0; i < itemsArray.length; i++) {
+            const item = itemsArray[i];
+            const lines = doc.splitTextToSize(item.part || item.particulars || "", 94);
             const rowH = Math.max(8, lines.length * 5 + 3);
 
             // Handle Page Break strictly at yLimit
@@ -189,9 +213,9 @@ async function generateInvoicePDF(invoiceId, preview = false) {
             doc.text((i + 1).toString(), 16, textY, { align: "center" });
             doc.text(lines, 24, textY);
             doc.text(formatMoney(item.qty), 138, textY, { align: "right" });
-            doc.text(item.unit, 150, textY, { align: "center" });
+            doc.text(item.unit || "", 150, textY, { align: "center" });
             doc.text(formatMoney(item.rate), 178, textY, { align: "right" });
-            doc.text(formatMoney(item.amt), 198, textY, { align: "right" });
+            doc.text(formatMoney(item.amt || item.amount), 198, textY, { align: "right" });
             
             totalQty += parseFloat(item.qty) || 0;
             y += rowH;
@@ -216,12 +240,12 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.line(120, y, pageW - M, y);
         
         doc.text("OUTPUT VAT @ 5%", 177, y + 5, { align: "right" });
-        doc.text(formatMoney(invoice.tax), 198, y + 5, { align: "right" });
+        doc.text(formatMoney(invoice.tax || invoice.vat), 198, y + 5, { align: "right" });
         y += 8;
         doc.line(120, y, pageW - M, y);
         
         doc.text("GRAND TOTAL", 177, y + 5, { align: "right" });
-        doc.text(`AED ${formatMoney(invoice.grandTotal)}`, 198, y + 5, { align: "right" });
+        doc.text(`AED ${formatMoney(invoice.grandTotal || invoice.total)}`, 198, y + 5, { align: "right" });
         y += 8;
         doc.line(M, y, pageW - M, y);
         
@@ -230,7 +254,9 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.setFont("helvetica", "normal");
         doc.text("Amount Chargeable (in words):", 12, y + 4);
         doc.setFont("helvetica", "bold");
-        doc.text(`AED ${numberToWords(invoice.grandTotal)} Only`, 12, y + 9);
+        // Safe check for numberToWords
+        let words = typeof numberToWords === 'function' ? numberToWords(invoice.grandTotal || invoice.total) : "";
+        doc.text(`AED ${words} Only`, 12, y + 9);
         y += 11;
         doc.line(M, y, pageW - M, y);
 
@@ -244,17 +270,16 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         doc.text("A/c No.:", 12, y + 17);
         doc.text("IBAN:", 12, y + 21);
         
-        const b = DB.getSettings();
         doc.setFont("helvetica", "bold");
-        doc.text(b.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
-        doc.text(b.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
-        doc.text(b.bankAc || "1215754581", 35, y + 17);
-        doc.text(b.bankIban || "AE540000001215754581", 35, y + 21);
+        doc.text(settings.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
+        doc.text(settings.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
+        doc.text(settings.bankAc || "1215754581", 35, y + 17);
+        doc.text(settings.bankIban || "AE540000001215754581", 35, y + 21);
 
         doc.text("For Al Bowry Carpentry LLC", 195, y + 4, { align: "right" });
         doc.text("Authorized Signatory", 195, y + 28, { align: "right" });
         
-        const stampImg = await getBase64ImageFromURL(DB.getSettings().stampUrl);
+        const stampImg = await getBase64ImageFromURL(settings.stampUrl);
         if (stampImg) {
             doc.addImage(stampImg, 'PNG', 145, y + 5, 45, 22);
         }
@@ -262,7 +287,7 @@ async function generateInvoicePDF(invoiceId, preview = false) {
         if (preview) {
             return doc.output('datauristring');
         } else {
-            doc.save(`${invoice.invoiceNo}.pdf`);
+            doc.save(`${invoice.invoiceNo || 'Invoice'}.pdf`);
         }
     } catch (e) {
         console.error(e);
@@ -276,6 +301,8 @@ async function generateInvoicePDF(invoiceId, preview = false) {
 async function generateManualInvoicePDF(data, preview = false) {
     try {
         const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const settings = getSafeSettings();
+        
         const M = 10;
         const pageW = 210;
         const pageH = 297;
@@ -308,18 +335,18 @@ async function generateManualInvoicePDF(data, preview = false) {
         doc.text((data.meta.docTitle || "INVOICE").toUpperCase(), W_HALF, y + 5.5, { align: "center" });
 
         y += 8;
-        const logoImg = await getBase64ImageFromURL(DB.getSettings().logoUrl || 'public/logo.png');
+        const logoImg = await getBase64ImageFromURL(settings.logoUrl || 'public/logo.png');
         if (logoImg) doc.addImage(logoImg, 'PNG', W_HALF - 12, y + 2, 24, 24);
 
         y += 28;
         doc.setFontSize(14);
-        doc.text(DB.getSettings().companyName, W_HALF, y, { align: "center" });
+        doc.text(settings.companyName || "Al Bowry Carpentry LLC", W_HALF, y, { align: "center" });
         y += 5;
         doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(DB.getSettings().address, W_HALF, y, { align: "center" });
+        doc.text(settings.address || "", W_HALF, y, { align: "center" });
         y += 5;
-        doc.text(`TRN: ${DB.getSettings().trn}`, W_HALF, y, { align: "center" });
+        doc.text(`TRN: ${settings.trn || ""}`, W_HALF, y, { align: "center" });
         
         y += 5;
         doc.setLineWidth(0.4);
@@ -462,10 +489,9 @@ async function generateManualInvoicePDF(data, preview = false) {
             let textY = y + 5;
             cellTexts.forEach((lines, idx) => {
                 let align = (idx === 0 || idx > 1) ? "center" : "left";
-                // Assume amount/rate are right aligned if it's the last 2 cols
                 if (idx >= cols.length - 2 && idx > 1) align = "right"; 
                 
-                let tx = cX = cols[idx].x;
+                let tx = cols[idx].x;
                 if (align === "center") tx += (cols[idx].w / 2);
                 else if (align === "right") tx += cols[idx].w - 2;
                 else tx += 2;
@@ -522,17 +548,16 @@ async function generateManualInvoicePDF(data, preview = false) {
         doc.text("A/c No.:", 12, y + 17);
         doc.text("IBAN:", 12, y + 21);
         
-        const b = DB.getSettings();
         doc.setFont("helvetica", "bold");
-        doc.text(b.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
-        doc.text(b.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
-        doc.text(b.bankAc || "1215754581", 35, y + 17);
-        doc.text(b.bankIban || "AE540000001215754581", 35, y + 21);
+        doc.text(settings.bankName || "Al Bowry Carpentry LLC", 35, y + 9);
+        doc.text(settings.bankBank || "Abu Dhabi Commercial Bank", 35, y + 13);
+        doc.text(settings.bankAc || "1215754581", 35, y + 17);
+        doc.text(settings.bankIban || "AE540000001215754581", 35, y + 21);
 
         doc.text("For Al Bowry Carpentry LLC", 195, y + 4, { align: "right" });
         doc.text("Authorized Signatory", 195, y + 28, { align: "right" });
         
-        const stampImg = await getBase64ImageFromURL(DB.getSettings().stampUrl);
+        const stampImg = await getBase64ImageFromURL(settings.stampUrl);
         if (stampImg) {
             let signCenter = splitX + ((pageW - M - splitX) / 2);
             doc.addImage(stampImg, 'PNG', signCenter - 22, y + 5, 45, 22);
