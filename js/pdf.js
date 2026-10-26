@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Advanced PDF Engine
-// Auto-Pagination, Dynamic Borders, Premium Layout
+// FIXED FOOTER ARCHITECTURE (No Blank Spaces)
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -31,26 +31,16 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
 
-    // PAGE BREAK LOGIC
-    let currentPage = 1;
-    const checkPageBreak = (neededH) => {
-        if (y + neededH > pageH - M - 10) {
-            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); // Close outer box
-            doc.addPage();
-            currentPage++;
-            y = M;
-            
-            // Re-draw table header
-            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
-            drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
-            drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
-            y += 7; hLine(y);
-        }
-    };
+    // 🔥 DYNAMIC FOOTER HEIGHT CALCULATION
+    let footerH = 4.5 + 4.5; // TotalsTop + Subtotal
+    if (invoice.discount > 0) footerH += 4.5;
+    if (invoice.vatEnabled) footerH += 4.5;
+    if (invoice.roundOff > 0) footerH += 4.5;
+    footerH += 11.7; // Grand Total Box
+    footerH += 12.5; // Words Area
+    footerH += 43.0; // Bank & Stamp Area
+    footerH += 7.5;  // Contact Footer
+    const yLimit = (pageH - M) - footerH; // Exact line where table MUST stop
 
     // ═══ TITLE ═══
     drawCell('TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
@@ -91,8 +81,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
         y += 4; drawCell('Project:', M + 3, y, { bold: true, size: 9 }); drawCell(invoice.projectName, M + 20, y, { size: 9 }); y += 3.5; hLine(y);
     }
 
-    // ═══ ITEMS TABLE ═══
-    checkPageBreak(25);
+    // ═══ TABLE HEADERS ═══
     doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
     drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
     drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
@@ -102,11 +91,34 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
     y += 7; hLine(y);
 
-    let totalQtyCount = 0; const itemsStartY = y;
+    // ═══ ITEMS TABLE LOOP ═══
+    let totalQtyCount = 0; 
+    let currentPage = 1;
+
     (invoice.items || []).forEach((item, idx) => {
         const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
         const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
-        checkPageBreak(rowH + 2);
+        
+        // 🔥 PAGE BREAK TRIGGER
+        if (y + rowH > yLimit) {
+            // Drop lines to the bottom of the current page perfectly
+            vLine(col.desc.x, y, pageH - M); vLine(col.qty.x, y, pageH - M); vLine(col.unit.x, y, pageH - M); vLine(col.rate.x, y, pageH - M); vLine(col.amount.x, y, pageH - M);
+            hLine(pageH - M);
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, pageH - 2*M, 'S'); // Close Frame
+
+            doc.addPage();
+            currentPage++;
+            y = M;
+
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell('Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
+        }
         
         const rowTop = y; totalQtyCount += parseFloat(item.qty || 0);
         drawCell(String(idx + 1), col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
@@ -123,16 +135,14 @@ function generateInvoicePDF(invoiceId, preview = false) {
         vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
 
-    const minTableHeight = 28;
-    if ((y - itemsStartY) < minTableHeight && currentPage === 1) {
-        const emptySpace = minTableHeight - (y - itemsStartY);
-        vLine(col.desc.x, y, y + emptySpace); vLine(col.qty.x, y, y + emptySpace); vLine(col.unit.x, y, y + emptySpace); vLine(col.rate.x, y, y + emptySpace); vLine(col.amount.x, y, y + emptySpace);
-        y += emptySpace;
+    // 🔥 STRETCH TABLE TO BOTTOM LOCK
+    if (y < yLimit) {
+        vLine(col.desc.x, y, yLimit); vLine(col.qty.x, y, yLimit); vLine(col.unit.x, y, yLimit); vLine(col.rate.x, y, yLimit); vLine(col.amount.x, y, yLimit);
+        y = yLimit;
     }
     hLine(y);
 
-    // ═══ TOTALS ═══
-    checkPageBreak(50);
+    // ═══ TOTALS (Locked to Bottom) ═══
     const totalsTop = y; y += 4.5;
     const labelAlign = col.amount.x - 2, valueAlign = col.amount.x + col.amount.w - 2;
 
@@ -160,7 +170,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell(numberToWords(invoice.grandTotal), M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
 
     // ═══ BANK + STAMP ═══
-    checkPageBreak(45);
     const bottomBoxTop = y; let bankY = y + 4;
     drawCell("Company's Bank Details", M + 3, bankY, { bold: true, size: 9.5 }); bankY += 4.5;
     const bx = M + 3, by = M + 28;
@@ -184,7 +193,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
     y += 3.5; hLine(y);
 
-    // CLOSE FINAL PAGE BORDER
+    // FINAL PAGE OUTER FRAME CLOSE
     doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
     drawCell('This is a Computer Generated Invoice', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
 
@@ -195,8 +204,9 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
 // ═══════════════════════════════════════════════════════
 // NEW: ADVANCED MANUAL INVOICE GENERATOR (100% Custom Layout)
-// Features: Auto-Page Break, Dynamic Wraps, Navy Blue Theme
+// FIXED FOOTER ARCHITECTURE
 // ═══════════════════════════════════════════════════════
+
 function generateManualInvoicePDF(data, preview = false) {
     const settings = DB.getSettings();
     const { jsPDF } = window.jspdf;
@@ -221,26 +231,11 @@ function generateManualInvoicePDF(data, preview = false) {
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
 
-    // PAGE BREAK LOGIC FOR MANUAL PDF
-    let currentPage = 1;
-    const checkPageBreak = (neededH) => {
-        if (y + neededH > pageH - M - 10) {
-            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S'); // Close outer border perfectly
-            doc.addPage();
-            currentPage++;
-            y = M;
-            
-            // Re-draw manual table headers perfectly
-            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
-            drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
-            drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
-            drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
-            y += 7; hLine(y);
-        }
-    };
+    // 🔥 DYNAMIC FOOTER CALCULATION FOR MANUAL INVOICE
+    const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
+    const totalsBlockH = (tLines.length * 4.5) + 4.5;
+    const footerH = totalsBlockH + 11.2 + 12.5 + 43.0 + 7.5; 
+    const yLimit = (pageH - M) - footerH;
 
     // TITLE
     drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
@@ -268,7 +263,6 @@ function generateManualInvoicePDF(data, preview = false) {
     const rightTextLines = doc.splitTextToSize(data.metaText || '', (M + W) - splitX - 6);
     rightTextLines.forEach(line => { doc.text(line, splitX + 4, rightY); rightY += 4.5; });
 
-    // 🔥 Exact Height calculation to prevent breaking
     const buyerBoxH = Math.max(leftY, rightY) - buyerBoxTop + 2;
     vLine(splitX, buyerBoxTop, buyerBoxTop + buyerBoxH);
     y = buyerBoxTop + buyerBoxH; hLine(y);
@@ -280,8 +274,6 @@ function generateManualInvoicePDF(data, preview = false) {
     }
 
     // TABLE HEADERS
-    checkPageBreak(25);
-    const headerTop = y;
     doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
     drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
     drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
@@ -291,13 +283,31 @@ function generateManualInvoicePDF(data, preview = false) {
     drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
     y += 7; hLine(y);
 
-    const itemsStartY = y;
+    let currentPage = 1;
+
     (data.items || []).forEach((item) => {
         const descLines = doc.splitTextToSize(item.c2 || '', col.desc.w - 4);
         const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
         
-        // 🔥 This checks if this row will break the page. If yes, makes new page!
-        checkPageBreak(rowH + 2); 
+        // 🔥 PAGE BREAK TRIGGER
+        if (y + rowH > yLimit) {
+            vLine(col.desc.x, y, pageH - M); vLine(col.qty.x, y, pageH - M); vLine(col.unit.x, y, pageH - M); vLine(col.rate.x, y, pageH - M); vLine(col.amount.x, y, pageH - M);
+            hLine(pageH - M);
+            doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, pageH - 2*M, 'S');
+
+            doc.addPage();
+            currentPage++;
+            y = M;
+            
+            doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
+            drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+            drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
+            drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
+            y += 7; hLine(y);
+        }
         
         const rowTop = y;
         drawCell(item.c1 || '', col.sl.x + col.sl.w / 2, y + 4.5, { size: 8.5, align: 'center' });
@@ -312,19 +322,14 @@ function generateManualInvoicePDF(data, preview = false) {
         vLine(col.desc.x, rowTop, y); vLine(col.qty.x, rowTop, y); vLine(col.unit.x, rowTop, y); vLine(col.rate.x, rowTop, y); vLine(col.amount.x, rowTop, y);
     });
 
-    const minH = 28;
-    if ((y - itemsStartY) < minH && currentPage === 1) {
-        let eH = minH - (y - itemsStartY);
-        vLine(col.desc.x, y, y + eH); vLine(col.qty.x, y, y + eH); vLine(col.unit.x, y, y + eH); vLine(col.rate.x, y, y + eH); vLine(col.amount.x, y, y + eH);
-        y += eH;
+    // 🔥 STRETCH TABLE TO BOTTOM LOCK
+    if (y < yLimit) {
+        vLine(col.desc.x, y, yLimit); vLine(col.qty.x, y, yLimit); vLine(col.unit.x, y, yLimit); vLine(col.rate.x, y, yLimit); vLine(col.amount.x, y, yLimit);
+        y = yLimit;
     }
     hLine(y);
 
     // MANUAL TOTALS BOX
-    const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
-    const totalsBlockH = tLines.length * 4.5 + 15;
-    checkPageBreak(totalsBlockH); // Ensures totals don't get cut
-
     const totalsTop = y; y += 4.5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
     tLines.forEach(line => { doc.text(line, M + W - 2, y, { align: 'right' }); y += 4.5; });
@@ -337,7 +342,6 @@ function generateManualInvoicePDF(data, preview = false) {
     y += 2.7; vLine(col.amount.x, y - 8.5, y); hLine(y);
 
     // AMOUNT IN WORDS
-    checkPageBreak(45);
     y += 4; drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 9 });
     drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 8, align: 'right' }); y += 5;
     drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 10, color: [26, 58, 92] }); y += 3.5; hLine(y);
@@ -366,7 +370,7 @@ function generateManualInvoicePDF(data, preview = false) {
     drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
     y += 3.5; hLine(y);
 
-    // 🔥 FINAL OUTER BORDER - Perfectly enclosed
+    // 🔥 FINAL PAGE OUTER FRAME CLOSE
     doc.setDrawColor(0); doc.setLineWidth(0.6); doc.rect(M, M, W, y - M, 'S');
     drawCell('This is a Computer Generated Document', pageW / 2, y + 5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
 
