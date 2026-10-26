@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
-// AL BOWRY CARPENTRY LLC - UNIVERSAL PDF ENGINE
-// Max-Fill Logic, Tight-Wrap Borders, Auto-Flow Pagination
+// AL BOWRY CARPENTRY LLC - ULTIMATE PDF ENGINE
+// Full-Page Usage, Bottom-Pinned Footer, No Blank Spaces
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -11,8 +11,8 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = 210, pageH = 297, M = 10, W = pageW - 2 * M;
-    const PAGE_BOTTOM = 285; // Max allowed Y before forcing a new page
-    const FOOTER_HEIGHT = 90; // Exact space needed for Totals + Bank + Stamp
+    const PAGE_BOTTOM = 285; // Page ke end ka point (Y)
+    const FOOTER_HEIGHT = 102; // Footer ke liye required space (Totals + Words + Bank + Sig)
     let y = M;
     let currentPage = 1;
 
@@ -33,6 +33,12 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const LINE_W = 0.4;
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
+
+    // Table ki vertical lines ko draw karne ka helper function
+    const drawTableVLines = (startY, endY) => {
+        vLine(col.desc.x, startY, endY); vLine(col.qty.x, startY, endY);
+        vLine(col.unit.x, startY, endY); vLine(col.rate.x, startY, endY); vLine(col.amount.x, startY, endY);
+    };
 
     // ═══ TITLE ═══
     drawCell('TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' });
@@ -90,16 +96,18 @@ function generateInvoicePDF(invoiceId, preview = false) {
         const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
         const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
         
-        // Agar current item page se bahar ja raha hai, toh current page close karo
-        if (y + rowH > PAGE_BOTTOM) {
-            vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
-            hLine(y);
-            doc.rect(M, M, W, y - M, 'S'); // Outer box exactly content tak
+        // Check: Agar item page par nahi aa sakta, toh page ko bottom tak stretch karke break karo
+        if (y + rowH > PAGE_BOTTOM - 5) {
+            drawTableVLines(tableTop, PAGE_BOTTOM); // Pura blank fill karo bottom tak
+            hLine(PAGE_BOTTOM);
+            doc.rect(M, M, W, PAGE_BOTTOM - M, 'S'); // Outer box close
             drawCell(`Page ${currentPage}`, pageW / 2, pageH - 4, { size: 7.5, align: 'center', color: [150, 150, 150] });
 
             doc.addPage();
             currentPage++; y = M;
 
+            // New Page - Continued Header
+            drawCell('TAX INVOICE (Continued)', pageW / 2, y + 6, { bold: true, size: 11, align: 'center', color: [26, 58, 92] }); y += 10; hLine(y);
             doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
             drawCell('Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
             drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
@@ -107,8 +115,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
             drawCell('Unit', col.unit.x + col.unit.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
             drawCell('Rate', col.rate.x + col.rate.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
             drawCell('Amount (AED)', col.amount.x + col.amount.w - 2, y + 4.8, { bold: true, size: 8.5, align: 'right' });
-            y += 7; hLine(y);
-            tableTop = y;
+            y += 7; hLine(y); tableTop = y;
         }
         
         totalQtyCount += parseFloat(item.qty || 0);
@@ -124,28 +131,32 @@ function generateInvoicePDF(invoiceId, preview = false) {
         y += rowH;
     });
 
-    // Min table height (thoda better look ke liye if single item ho)
-    if (y - tableTop < 35) { y = tableTop + 35; }
-
-    // ═══ CHECK IF FOOTER FITS ═══
+    // ═══ CHECK: IS THERE ROOM FOR FOOTER? ═══
+    // Agar items ke baad Footer fit nahi ho raha, toh us page ko empty table lines se bhar do.
     if (y + FOOTER_HEIGHT > PAGE_BOTTOM) {
-        // Items to fit gaye par Footer nahi aayega, so table close karo & fresh page for Footer
-        vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
-        hLine(y);
-        doc.rect(M, M, W, y - M, 'S');
+        drawTableVLines(tableTop, PAGE_BOTTOM);
+        hLine(PAGE_BOTTOM);
+        doc.rect(M, M, W, PAGE_BOTTOM - M, 'S');
         drawCell(`Page ${currentPage}`, pageW / 2, pageH - 4, { size: 7.5, align: 'center', color: [150, 150, 150] });
 
         doc.addPage();
         currentPage++; y = M;
 
+        drawCell('TAX INVOICE (Continued)', pageW / 2, y + 6, { bold: true, size: 11, align: 'center', color: [26, 58, 92] }); y += 10; hLine(y);
         doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
-        drawCell('Particulars (Continuation)', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+        drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
         y += 7; hLine(y); tableTop = y;
-        y += 10; // Chhoti si blank table dikhane ke liye
     }
 
-    // ═══ CLOSE FINAL TABLE ═══
-    vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
+    // ═══ MAGIC STRETCH TO BOTTOM ═══
+    // Table ko kheench kar theek us jagah tak le jao jahan se Footer perfectly bottom par set ho sake.
+    const targetY = PAGE_BOTTOM - FOOTER_HEIGHT;
+    if (y < targetY) {
+        drawTableVLines(tableTop, targetY);
+        y = targetY; // y ko target tak le aaye
+    } else {
+        drawTableVLines(tableTop, y); // Safe fallback
+    }
     hLine(y);
 
     // ═══ TOTALS ═══
@@ -184,7 +195,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
     drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
 
-    const stampNeededH = 4 + SIG_H + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
+    const boxBottomY = Math.max(bankY + 1, bottomBoxTop + 4 + SIG_H + 5);
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
     if (settings.signatureUrl) {
         try { const rW = (M + W) - splitX; const sigX = splitX + (rW - SIG_W) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H); } catch (e) {}
@@ -199,10 +210,9 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8.5 }); drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8.5 });
     y += 3.5; hLine(y);
 
-    // ═══ TIGHT OUTER BORDER (wraps exactly to contact) ═══
+    // Final Outer Box (Hamesha full height ka banega kyunki y = PAGE_BOTTOM pahuch chuka hai)
     doc.rect(M, M, W, y - M, 'S'); 
     
-    // Watermark/Page info text (OUTSIDE the border)
     drawCell('This is a Computer Generated Invoice', pageW / 2, y + 4.5, { italic: true, size: 8, align: 'center', color: [100, 100, 100] });
     drawCell(`Page ${currentPage}`, pageW / 2, pageH - 4, { size: 7.5, align: 'center', color: [150, 150, 150] });
 
@@ -212,7 +222,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
 
 // ═══════════════════════════════════════════════════════
-// MANUAL INVOICE - Same Tight-Wrap Logic
+// MANUAL INVOICE - Perfect Bottom Fit Logic Same As Above
 // ═══════════════════════════════════════════════════════
 
 function generateManualInvoicePDF(data, preview = false) {
@@ -240,6 +250,11 @@ function generateManualInvoicePDF(data, preview = false) {
     const LINE_W = 0.4;
     const hLine = (yPos) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(M, yPos, M + W, yPos); };
     const vLine = (x, y1, y2) => { doc.setDrawColor(0); doc.setLineWidth(LINE_W); doc.line(x, y1, x, y2); };
+
+    const drawTableVLines = (startY, endY) => {
+        vLine(col.desc.x, startY, endY); vLine(col.qty.x, startY, endY);
+        vLine(col.unit.x, startY, endY); vLine(col.rate.x, startY, endY); vLine(col.amount.x, startY, endY);
+    };
 
     drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 6, { bold: true, size: 13, align: 'center' }); y += 9; hLine(y);
 
@@ -282,15 +297,16 @@ function generateManualInvoicePDF(data, preview = false) {
         const descLines = doc.splitTextToSize(item.c2 || '', col.desc.w - 4);
         const rowH = Math.max(6.5, descLines.length * 4 + 2.5);
         
-        if (y + rowH > PAGE_BOTTOM) {
-            vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
-            hLine(y);
-            doc.rect(M, M, W, y - M, 'S');
+        if (y + rowH > PAGE_BOTTOM - 5) {
+            drawTableVLines(tableTop, PAGE_BOTTOM);
+            hLine(PAGE_BOTTOM);
+            doc.rect(M, M, W, PAGE_BOTTOM - M, 'S');
             drawCell(`Page ${currentPage}`, pageW / 2, pageH - 4, { size: 7.5, align: 'center', color: [150, 150, 150] });
             
             doc.addPage();
             currentPage++; y = M;
             
+            drawCell((data.docTitle || 'TAX INVOICE') + ' (Continued)', pageW / 2, y + 6, { bold: true, size: 11, align: 'center', color: [26, 58, 92] }); y += 10; hLine(y);
             doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
             drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.8, { bold: true, size: 8.5, align: 'center' });
             drawCell(data.h2 || 'Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
@@ -312,26 +328,32 @@ function generateManualInvoicePDF(data, preview = false) {
         y += rowH;
     });
 
-    if (y - tableTop < 35) { y = tableTop + 35; }
-
     const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
     const totalsBlockH = tLines.length * 4.5 + 12;
     const manualFooterH = totalsBlockH + 78;
 
     if (y + manualFooterH > PAGE_BOTTOM) {
-        vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
-        hLine(y);
-        doc.rect(M, M, W, y - M, 'S');
+        drawTableVLines(tableTop, PAGE_BOTTOM);
+        hLine(PAGE_BOTTOM);
+        doc.rect(M, M, W, PAGE_BOTTOM - M, 'S');
         drawCell(`Page ${currentPage}`, pageW / 2, pageH - 4, { size: 7.5, align: 'center', color: [150, 150, 150] });
 
         doc.addPage();
         currentPage++; y = M;
+
+        drawCell((data.docTitle || 'TAX INVOICE') + ' (Continued)', pageW / 2, y + 6, { bold: true, size: 11, align: 'center', color: [26, 58, 92] }); y += 10; hLine(y);
         doc.setFillColor(235, 235, 235); doc.rect(M, y, W, 7, 'F');
-        drawCell('Particulars (Continuation)', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
-        y += 7; hLine(y); tableTop = y; y += 10;
+        drawCell('Particulars', col.desc.x + 3, y + 4.8, { bold: true, size: 8.5 });
+        y += 7; hLine(y); tableTop = y;
     }
 
-    vLine(col.desc.x, tableTop, y); vLine(col.qty.x, tableTop, y); vLine(col.unit.x, tableTop, y); vLine(col.rate.x, tableTop, y); vLine(col.amount.x, tableTop, y);
+    const targetY = PAGE_BOTTOM - manualFooterH;
+    if (y < targetY) {
+        drawTableVLines(tableTop, targetY);
+        y = targetY;
+    } else {
+        drawTableVLines(tableTop, y);
+    }
     hLine(y);
 
     const totalsTop = y; y += 4.5;
@@ -356,7 +378,7 @@ function generateManualInvoicePDF(data, preview = false) {
     drawCell('A/c No.:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankAccount || '-', by, bankY, { bold: true, size: 8.5 }); bankY += 3.8;
     drawCell('IBAN:', bx, bankY, { bold: true, size: 8.5 }); drawCell(settings.bankIban || '-', by, bankY, { size: 8.5 }); bankY += 2;
 
-    const stampNeededH = 4 + SIG_H + 5; const boxBottomY = Math.max(bankY + 1, bottomBoxTop + stampNeededH);
+    const boxBottomY = Math.max(bankY + 1, bottomBoxTop + 4 + SIG_H + 5);
     drawCell(`For ${settings.companyName}`, M + W - 3, bottomBoxTop + 4, { bold: true, size: 9.5, align: 'right' });
     if (settings.signatureUrl) { try { const rW = (M + W) - splitX; const sigX = splitX + (rW - SIG_W) / 2; doc.addImage(settings.signatureUrl, 'PNG', sigX, bottomBoxTop + 5.5, SIG_W, SIG_H); } catch (e) {} }
     drawCell('Authorised Signatory', M + W - 3, boxBottomY - 3, { bold: true, size: 9, align: 'right' });
