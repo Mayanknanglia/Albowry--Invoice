@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════
 // AL BOWRY CARPENTRY LLC - Advanced PDF Engine
-// Tight rows (~16/page) + No empty stretch + Smart footer
+// Tight rows, Table Stretch, Fixed Footer & Auto Font-Size
 // ═══════════════════════════════════════════════════════
 
 function generateInvoicePDF(invoiceId, preview = false) {
@@ -24,9 +24,21 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const splitX = col.qty.x;
     const SIG_W = 55, SIG_H = 32;
 
+    // ✅ PRO FEATURE: Auto Font-Size Adjust (Text overlap rokne ke liye)
     const drawCell = (text, x, yPos, opts = {}) => {
+        let currentSize = opts.size || 9;
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
-        doc.setFontSize(opts.size || 9);
+        doc.setFontSize(currentSize);
+
+        if (opts.maxWidth) {
+            let textWidth = doc.getTextWidth(String(text || ''));
+            while (textWidth > opts.maxWidth && currentSize > 4.5) {
+                currentSize -= 0.5;
+                doc.setFontSize(currentSize);
+                textWidth = doc.getTextWidth(String(text || ''));
+            }
+        }
+
         doc.setTextColor(...(opts.color || [0, 0, 0]));
         doc.text(String(text || ''), x, yPos, { align: opts.align || 'left' });
     };
@@ -40,7 +52,6 @@ function generateInvoicePDF(invoiceId, preview = false) {
         doc.rect(M, M, W, bottomY - M, 'S');
     };
 
-    // Footer height reserve (totals + words + bank + contact)
     const FOOTER_H = 78;
     const pageBottom = pageH - M;
 
@@ -55,7 +66,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     }
     y += 22;
     drawCell((settings.companyName || 'AL BOWRY CARPENTRY LLC').toUpperCase(), pageW / 2, y, {
-        bold: true, size: 14, align: 'center', color: [26, 58, 92]
+        bold: true, size: 14, align: 'center', color: [26, 58, 92], maxWidth: W - 10
     });
     y += 4.2;
     doc.setFont('helvetica', 'normal');
@@ -71,7 +82,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     const buyerBoxTop = y;
     let leftY = y + 4;
     drawCell('Buyer (Bill to):', M + 3, leftY, { bold: true, size: 9 }); leftY += 4.5;
-    drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 11 }); leftY += 4.5;
+    drawCell(invoice.customerName || 'N/A', M + 3, leftY, { bold: true, size: 11, maxWidth: col.desc.w }); leftY += 4.5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
     const custAddrLines = doc.splitTextToSize(invoice.customerAddress || '', splitX - M - 6);
     custAddrLines.slice(0, 3).forEach(line => { doc.text(line, M + 3, leftY); leftY += 3.5; });
@@ -84,17 +95,17 @@ function generateInvoicePDF(invoiceId, preview = false) {
     let rightY = y + 4;
     const labelX = splitX + 3, valueX = splitX + 28;
     drawCell('Invoice No.:', labelX, rightY, { bold: true, size: 8.5 });
-    drawCell(invoice.invoiceNumber || '', valueX, rightY, { bold: true, size: 8.5, color: [26, 58, 92] });
+    drawCell(invoice.invoiceNumber || '', valueX, rightY, { bold: true, size: 8.5, color: [26, 58, 92], maxWidth: W - valueX });
     rightY += 5;
     drawCell('Dated:', labelX, rightY, { bold: true, size: 8.5 });
     drawCell(typeof formatDate === 'function' ? formatDate(invoice.date) : (invoice.date || ''), valueX, rightY, { size: 8.5 });
     rightY += 5;
     drawCell('Mode/Terms:', labelX, rightY, { bold: true, size: 8.5 });
-    drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 8.5 });
+    drawCell(invoice.paymentTerms || 'Cash', valueX, rightY, { bold: true, size: 8.5, maxWidth: W - valueX });
     rightY += 5;
     if (invoice.lpoNumber) {
         drawCell('LPO No.:', labelX, rightY, { bold: true, size: 8.5 });
-        drawCell(invoice.lpoNumber, valueX, rightY, { size: 8.5 });
+        drawCell(invoice.lpoNumber, valueX, rightY, { size: 8.5, maxWidth: W - valueX });
         rightY += 5;
     }
 
@@ -106,7 +117,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     if (invoice.projectName) {
         y += 3.5;
         drawCell('Project:', M + 3, y, { bold: true, size: 8.5 });
-        drawCell(invoice.projectName, M + 20, y, { size: 8.5 });
+        drawCell(invoice.projectName, M + 20, y, { size: 8.5, maxWidth: W - 25 });
         y += 3; hLine(y);
     }
 
@@ -128,10 +139,8 @@ function generateInvoicePDF(invoiceId, preview = false) {
     // ─── ITEMS ───
     let totalQtyCount = 0;
     const items = invoice.items || [];
-    const itemsStartY = y;
-
+    
     const startNewPage = () => {
-        // close previous page frame to full page height
         vLine(col.desc.x, y, pageBottom);
         vLine(col.qty.x, y, pageBottom);
         vLine(col.unit.x, y, pageBottom);
@@ -147,10 +156,8 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
     items.forEach((item, idx) => {
         const descLines = doc.splitTextToSize(item.description || '-', col.desc.w - 4);
-        // TIGHT row height → ~16 single-line rows fit with footer
         const rowH = Math.max(5.8, descLines.length * 3.6 + 2.2);
 
-        // Break if this row would cross into footer zone
         if (y + rowH > pageBottom - FOOTER_H) {
             startNewPage();
         }
@@ -169,10 +176,10 @@ function generateInvoicePDF(invoiceId, preview = false) {
             doc.text(descLines[i], col.desc.x + 2, y + 4 + (i * 3.4));
         }
 
-        drawCell(formatNum(item.qty), col.qty.x + col.qty.w / 2, y + 4, { size: 8, align: 'center' });
-        drawCell(item.unit || 'Nos', col.unit.x + col.unit.w / 2, y + 4, { size: 8, align: 'center' });
-        drawCell(formatNum(item.rate), col.rate.x + col.rate.w - 2, y + 4, { size: 8, align: 'right' });
-        drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 2, y + 4, { bold: true, size: 8, align: 'right' });
+        drawCell(formatNum(item.qty), col.qty.x + col.qty.w / 2, y + 4, { size: 8, align: 'center', maxWidth: col.qty.w - 2 });
+        drawCell(item.unit || 'Nos', col.unit.x + col.unit.w / 2, y + 4, { size: 8, align: 'center', maxWidth: col.unit.w - 2 });
+        drawCell(formatNum(item.rate), col.rate.x + col.rate.w - 2, y + 4, { size: 8, align: 'right', maxWidth: col.rate.w - 2 });
+        drawCell(formatNum(item.amount), col.amount.x + col.amount.w - 2, y + 4, { bold: true, size: 8, align: 'right', maxWidth: col.amount.w - 2 });
 
         y += rowH;
         vLine(col.desc.x, rowTop, y);
@@ -182,18 +189,17 @@ function generateInvoicePDF(invoiceId, preview = false) {
         vLine(col.amount.x, rowTop, y);
     });
 
-    // ✅ PRO FEATURE: Table ko neeche tak stretch karein aur Footer bottom par lock karein
+    // ✅ PRO FEATURE: Table Stretch & Footer Lock
     if (y + FOOTER_H > pageBottom) {
         hLine(y);
         closeFrame(y);
         doc.addPage();
         y = M;
-        drawTableHeader(); // Naye page par bhi header continue karega
+        drawTableHeader();
     }
 
     const footerStartY = pageBottom - FOOTER_H;
     if (y < footerStartY) {
-        // Khali bachi hui jagah par columns ki vertical lines ko stretch karo
         vLine(col.desc.x, y, footerStartY);
         vLine(col.qty.x, y, footerStartY);
         vLine(col.unit.x, y, footerStartY);
@@ -201,7 +207,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
         vLine(col.amount.x, y, footerStartY);
         y = footerStartY;
     }
-    hLine(y); // Footer shuru hone se pehle bottom line
+    hLine(y); 
 
     // ─── TOTALS ───
     const totalsTop = y;
@@ -213,25 +219,25 @@ function generateInvoicePDF(invoiceId, preview = false) {
         bold: true, size: 7.5, align: 'right', color: [100, 100, 100]
     });
     drawCell(formatNum(totalQtyCount), col.qty.x + col.qty.w / 2, y, {
-        bold: true, size: 8.5, align: 'center'
+        bold: true, size: 8.5, align: 'center', maxWidth: col.qty.w - 2
     });
     drawCell('Sub Total', labelAlign, y, { bold: true, size: 9, align: 'right' });
-    drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 9, align: 'right' });
+    drawCell(formatNum(invoice.subTotal), valueAlign, y, { bold: true, size: 9, align: 'right', maxWidth: col.amount.w - 2 });
     y += 4;
 
     if (invoice.discount > 0) {
         drawCell('Discount', labelAlign, y, { bold: true, size: 9, align: 'right' });
-        drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 9, align: 'right' });
+        drawCell('- ' + formatNum(invoice.discount), valueAlign, y, { bold: true, size: 9, align: 'right', maxWidth: col.amount.w - 2 });
         y += 4;
     }
     if (invoice.vatEnabled) {
         drawCell(`OUTPUT VAT @ ${invoice.vatRate || 5}%`, labelAlign, y, { bold: true, size: 9, align: 'right' });
-        drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 9, align: 'right' });
+        drawCell(formatNum(invoice.vatAmount), valueAlign, y, { bold: true, size: 9, align: 'right', maxWidth: col.amount.w - 2 });
         y += 4;
     }
     if (invoice.roundOff > 0) {
         drawCell('Round Off', labelAlign, y, { size: 9, align: 'right' });
-        drawCell(`${invoice.roundOffType === 'add' ? '(+)' : '(-)'} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 9, align: 'right' });
+        drawCell(`${invoice.roundOffType === 'add' ? '(+)' : '(-)'} ${formatNum(invoice.roundOff)}`, valueAlign, y, { size: 9, align: 'right', maxWidth: col.amount.w - 2 });
         y += 4;
     }
 
@@ -244,7 +250,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 5.2;
     drawCell('GRAND TOTAL', labelAlign, y, { bold: true, size: 10.5, align: 'right', color: [26, 58, 92] });
     drawCell(`AED ${formatNum(invoice.grandTotal)}`, valueAlign, y, {
-        bold: true, size: 11.5, align: 'right', color: [26, 58, 92]
+        bold: true, size: 11.5, align: 'right', color: [26, 58, 92], maxWidth: col.amount.w - 2
     });
     y += 2.3;
     vLine(col.amount.x, y - 7.5, y);
@@ -256,7 +262,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
     drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 7.5, align: 'right' });
     y += 4.5;
     const words = typeof numberToWords === 'function' ? numberToWords(invoice.grandTotal) : '';
-    drawCell(words, M + 3, y, { bold: true, size: 9.5, color: [26, 58, 92] });
+    drawCell(words, M + 3, y, { bold: true, size: 9.5, color: [26, 58, 92], maxWidth: W - 10 });
     y += 3; hLine(y);
 
     // ─── BANK + SIGNATURE ───
@@ -266,21 +272,21 @@ function generateInvoicePDF(invoiceId, preview = false) {
     bankY += 4;
     const bx = M + 3, by = M + 26;
     drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.companyName || 'Al Bowry Carpentry LLC', by, bankY, { bold: true, size: 8 });
+    drawCell(settings.companyName || 'Al Bowry Carpentry LLC', by, bankY, { bold: true, size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('Bank Name:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankName || '-', by, bankY, { size: 8 });
+    drawCell(settings.bankName || '-', by, bankY, { size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('A/c No.:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankAccount || settings.bankAc || '-', by, bankY, { bold: true, size: 8 });
+    drawCell(settings.bankAccount || settings.bankAc || '-', by, bankY, { bold: true, size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('IBAN:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankIban || '-', by, bankY, { size: 8 });
+    drawCell(settings.bankIban || '-', by, bankY, { size: 8, maxWidth: splitX - by - 2 });
     bankY += 2;
 
     const boxBottomY = Math.max(bankY + 1, bottomBoxTop + SIG_H + 10);
     drawCell(`For ${settings.companyName || 'Al Bowry Carpentry LLC'}`, M + W - 3, bottomBoxTop + 3.5, {
-        bold: true, size: 9, align: 'right'
+        bold: true, size: 9, align: 'right', maxWidth: (W - splitX) - 5
     });
 
     if (settings.signatureUrl || settings.stampUrl) {
@@ -303,11 +309,11 @@ function generateInvoicePDF(invoiceId, preview = false) {
     y += 3.5;
     const cw = W / 3;
     drawCell('Contact:', M + 3, y, { bold: true, size: 8 });
-    drawCell(settings.phone || '-', M + 18, y, { size: 8 });
+    drawCell(settings.phone || '-', M + 18, y, { size: 8, maxWidth: cw - 20 });
     drawCell('Website:', M + cw + 3, y, { bold: true, size: 8 });
-    drawCell(settings.website || '-', M + cw + 18, y, { size: 8 });
+    drawCell(settings.website || '-', M + cw + 18, y, { size: 8, maxWidth: cw - 20 });
     drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8 });
-    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8 });
+    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8, maxWidth: cw - 20 });
     y += 3; hLine(y);
 
     // Final outer border
@@ -326,7 +332,7 @@ function generateInvoicePDF(invoiceId, preview = false) {
 
 
 // ═══════════════════════════════════════════════════════
-// MANUAL INVOICE GENERATOR — same tight layout
+// MANUAL INVOICE GENERATOR — same tight layout & features
 // ═══════════════════════════════════════════════════════
 
 function generateManualInvoicePDF(data, preview = false) {
@@ -348,8 +354,19 @@ function generateManualInvoicePDF(data, preview = false) {
     const SIG_W = 55, SIG_H = 32;
 
     const drawCell = (text, x, yPos, opts = {}) => {
+        let currentSize = opts.size || 9;
         doc.setFont('helvetica', opts.bold ? 'bold' : (opts.italic ? 'italic' : 'normal'));
-        doc.setFontSize(opts.size || 9);
+        doc.setFontSize(currentSize);
+
+        if (opts.maxWidth) {
+            let textWidth = doc.getTextWidth(String(text || ''));
+            while (textWidth > opts.maxWidth && currentSize > 4.5) {
+                currentSize -= 0.5;
+                doc.setFontSize(currentSize);
+                textWidth = doc.getTextWidth(String(text || ''));
+            }
+        }
+
         doc.setTextColor(...(opts.color || [0, 0, 0]));
         doc.text(String(text || ''), x, yPos, { align: opts.align || 'left' });
     };
@@ -367,7 +384,7 @@ function generateManualInvoicePDF(data, preview = false) {
     const pageBottom = pageH - M;
 
     // TITLE
-    drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 5.5, { bold: true, size: 13, align: 'center' });
+    drawCell(data.docTitle || 'TAX INVOICE', pageW / 2, y + 5.5, { bold: true, size: 13, align: 'center', maxWidth: W - 10 });
     y += 8; hLine(y);
 
     // COMPANY
@@ -377,7 +394,7 @@ function generateManualInvoicePDF(data, preview = false) {
     }
     y += 22;
     drawCell((settings.companyName || 'AL BOWRY CARPENTRY LLC').toUpperCase(), pageW / 2, y, {
-        bold: true, size: 14, align: 'center', color: [26, 58, 92]
+        bold: true, size: 14, align: 'center', color: [26, 58, 92], maxWidth: W - 10
     });
     y += 4.2;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
@@ -415,12 +432,12 @@ function generateManualInvoicePDF(data, preview = false) {
     const drawTableHeader = () => {
         doc.setFillColor(235, 235, 235);
         doc.rect(M, y, W, 6.5, 'F');
-        drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.4, { bold: true, size: 8, align: 'center' });
-        drawCell(data.h2 || 'Particulars', col.desc.x + 2, y + 4.4, { bold: true, size: 8 });
-        drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.4, { bold: true, size: 8, align: 'center' });
-        drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.4, { bold: true, size: 8, align: 'center' });
-        drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.4, { bold: true, size: 8, align: 'center' });
-        drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.4, { bold: true, size: 8, align: 'right' });
+        drawCell(data.h1 || 'Sl No.', col.sl.x + col.sl.w / 2, y + 4.4, { bold: true, size: 8, align: 'center', maxWidth: col.sl.w - 1 });
+        drawCell(data.h2 || 'Particulars', col.desc.x + 2, y + 4.4, { bold: true, size: 8, maxWidth: col.desc.w - 4 });
+        drawCell(data.h3 || 'Qty', col.qty.x + col.qty.w / 2, y + 4.4, { bold: true, size: 8, align: 'center', maxWidth: col.qty.w - 1 });
+        drawCell(data.h4 || 'Unit', col.unit.x + col.unit.w / 2, y + 4.4, { bold: true, size: 8, align: 'center', maxWidth: col.unit.w - 1 });
+        drawCell(data.h5 || 'Rate', col.rate.x + col.rate.w / 2, y + 4.4, { bold: true, size: 8, align: 'center', maxWidth: col.rate.w - 1 });
+        drawCell(data.h6 || 'Amount', col.amount.x + col.amount.w - 2, y + 4.4, { bold: true, size: 8, align: 'right', maxWidth: col.amount.w - 1 });
         y += 6.5;
         hLine(y);
     };
@@ -449,13 +466,13 @@ function generateManualInvoicePDF(data, preview = false) {
         }
 
         const rowTop = y;
-        drawCell(item.c1 || '', col.sl.x + col.sl.w / 2, y + 4, { size: 8, align: 'center' });
+        drawCell(item.c1 || '', col.sl.x + col.sl.w / 2, y + 4, { size: 8, align: 'center', maxWidth: col.sl.w - 2 });
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
         descLines.forEach((line, i) => doc.text(line, col.desc.x + 2, y + 4 + (i * 3.4)));
-        drawCell(item.c3 || '', col.qty.x + col.qty.w / 2, y + 4, { size: 8, align: 'center' });
-        drawCell(item.c4 || '', col.unit.x + col.unit.w / 2, y + 4, { size: 8, align: 'center' });
-        drawCell(item.c5 || '', col.rate.x + col.rate.w - 2, y + 4, { size: 8, align: 'right' });
-        drawCell(item.c6 || '', col.amount.x + col.amount.w - 2, y + 4, { bold: true, size: 8, align: 'right' });
+        drawCell(item.c3 || '', col.qty.x + col.qty.w / 2, y + 4, { size: 8, align: 'center', maxWidth: col.qty.w - 2 });
+        drawCell(item.c4 || '', col.unit.x + col.unit.w / 2, y + 4, { size: 8, align: 'center', maxWidth: col.unit.w - 2 });
+        drawCell(item.c5 || '', col.rate.x + col.rate.w - 2, y + 4, { size: 8, align: 'right', maxWidth: col.rate.w - 2 });
+        drawCell(item.c6 || '', col.amount.x + col.amount.w - 2, y + 4, { bold: true, size: 8, align: 'right', maxWidth: col.amount.w - 2 });
 
         y += rowH;
         vLine(col.desc.x, rowTop, y);
@@ -465,7 +482,7 @@ function generateManualInvoicePDF(data, preview = false) {
         vLine(col.amount.x, rowTop, y);
     });
 
-    // ✅ PRO FEATURE: Table ko neeche tak stretch karein aur Footer bottom par lock karein
+    // ✅ PRO FEATURE: Table Stretch & Footer Lock
     if (y + FOOTER_H > pageBottom) {
         hLine(y);
         closeFrame(y);
@@ -502,7 +519,7 @@ function generateManualInvoicePDF(data, preview = false) {
         bold: true, size: 10.5, align: 'right', color: [26, 58, 92]
     });
     drawCell(data.grandTotalValue || '', M + W - 2, y, {
-        bold: true, size: 11.5, align: 'right', color: [26, 58, 92]
+        bold: true, size: 11.5, align: 'right', color: [26, 58, 92], maxWidth: col.amount.w - 2
     });
     y += 2.3;
     vLine(col.amount.x, y - 7.5, y);
@@ -513,7 +530,7 @@ function generateManualInvoicePDF(data, preview = false) {
     drawCell('Amount Chargeable (in words):', M + 3, y, { bold: true, size: 8.5 });
     drawCell('E. & O.E', M + W - 3, y, { italic: true, size: 7.5, align: 'right' });
     y += 4.5;
-    drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 9.5, color: [26, 58, 92] });
+    drawCell(data.amountInWords || '', M + 3, y, { bold: true, size: 9.5, color: [26, 58, 92], maxWidth: W - 10 });
     y += 3; hLine(y);
 
     // BANK + SIGN
@@ -523,21 +540,21 @@ function generateManualInvoicePDF(data, preview = false) {
     bankY += 4;
     const bx = M + 3, by = M + 26;
     drawCell('A/c Holder:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.companyName || 'Al Bowry Carpentry LLC', by, bankY, { bold: true, size: 8 });
+    drawCell(settings.companyName || 'Al Bowry Carpentry LLC', by, bankY, { bold: true, size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('Bank Name:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankName || '-', by, bankY, { size: 8 });
+    drawCell(settings.bankName || '-', by, bankY, { size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('A/c No.:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankAccount || settings.bankAc || '-', by, bankY, { bold: true, size: 8 });
+    drawCell(settings.bankAccount || settings.bankAc || '-', by, bankY, { bold: true, size: 8, maxWidth: splitX - by - 2 });
     bankY += 3.5;
     drawCell('IBAN:', bx, bankY, { bold: true, size: 8 });
-    drawCell(settings.bankIban || '-', by, bankY, { size: 8 });
+    drawCell(settings.bankIban || '-', by, bankY, { size: 8, maxWidth: splitX - by - 2 });
     bankY += 2;
 
     const boxBottomY = Math.max(bankY + 1, bottomBoxTop + SIG_H + 10);
     drawCell(`For ${settings.companyName || 'Al Bowry Carpentry LLC'}`, M + W - 3, bottomBoxTop + 3.5, {
-        bold: true, size: 9, align: 'right'
+        bold: true, size: 9, align: 'right', maxWidth: (W - splitX) - 5
     });
     if (settings.signatureUrl || settings.stampUrl) {
         try {
@@ -558,11 +575,11 @@ function generateManualInvoicePDF(data, preview = false) {
     y += 3.5;
     const cw = W / 3;
     drawCell('Contact:', M + 3, y, { bold: true, size: 8 });
-    drawCell(settings.phone || '-', M + 18, y, { size: 8 });
+    drawCell(settings.phone || '-', M + 18, y, { size: 8, maxWidth: cw - 20 });
     drawCell('Website:', M + cw + 3, y, { bold: true, size: 8 });
-    drawCell(settings.website || '-', M + cw + 18, y, { size: 8 });
+    drawCell(settings.website || '-', M + cw + 18, y, { size: 8, maxWidth: cw - 20 });
     drawCell('E-Mail:', M + 2 * cw + 3, y, { bold: true, size: 8 });
-    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8 });
+    drawCell(settings.email || '-', M + 2 * cw + 16, y, { size: 8, maxWidth: cw - 20 });
     y += 3; hLine(y);
 
     closeFrame(y);
