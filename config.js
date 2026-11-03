@@ -1,6 +1,6 @@
 // ============================================================
 // AL BOWRY CARPENTRY — CONFIGURATION
-// Version: 3.0.0 | BLUE THEME EDITION
+// Version: 3.1.0 | BLUE THEME EDITION (With Advanced Email Integration)
 // ============================================================
 
 const CONFIG = {
@@ -70,6 +70,30 @@ const CONFIG = {
         }
     },
 
+    // ============================================================
+    // NEW ADVANCED EMAIL SETTINGS 
+    // ============================================================
+    emailSettings: {
+        defaultSubject: "Invoice / Quotation from Al Bowry Carpentry",
+        senderName:     "Al Bowry Carpentry",
+        replyTo:        "albowry1989@gmail.com",
+        cc:             "", // Agar kisi aur ko bhi mail copy bhejna ho
+        bcc:            "",
+        
+        // Custom messages for different document types
+        templates: {
+            invoice: "Please find the details of your requested invoice below. You can view or download the detailed document using the link provided.",
+            quotation: "Please find the details of your requested quotation below. You can view or download the detailed document using the link provided."
+        },
+        
+        // UI Notification messages
+        messages: {
+            success: "Email successfully sent to the client!",
+            error: "Failed to send email. Please check the network or try again.",
+            sending: "Sending email, please wait..."
+        }
+    },
+
     scriptURL: "https://script.google.com/macros/s/AKfycbxmImNQQiI4UYd9lKbnGwqZnkxNB7ifUOc-MKWpu1R8IxZEsRndliDwuDK4M1x7Zd4Q/exec",
 
     units: [
@@ -119,7 +143,7 @@ const CONFIG = {
 
     app: {
         name:       "Al Bowry Invoice Pro",
-        version:    "3.0.0",
+        version:    "3.1.0",
         build:      "2025.01",
         developer:  "Al Bowry Tech",
         maxItems:   50,
@@ -131,4 +155,5 @@ const CONFIG = {
 Object.freeze(CONFIG.company);
 Object.freeze(CONFIG.bank);
 Object.freeze(CONFIG.invoice);
+Object.freeze(CONFIG.emailSettings); // Added to protect email settings
 Object.freeze(CONFIG.app);
