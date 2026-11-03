@@ -570,3 +570,43 @@ function sendInvoiceEmail(invoiceId) {
         if(typeof showToast === 'function') showToast("Error connecting to server.", 'error');
     });
 }
+// ─── COMPOSE EMAIL FUNCTION (MAILTO DIRECTORY) ───
+function sendInvoiceEmail(invoiceId) {
+    const invoices = DB.get(DB_KEYS.INVOICES);
+    const invoice = invoices.find(i => i.id === invoiceId);
+    
+    if (!invoice) {
+        alert("Invoice not found!");
+        return;
+    }
+
+    const customers = DB.get(DB_KEYS.CUSTOMERS) || [];
+    const customer = customers.find(c => c.id === invoice.customerId);
+    const defaultEmail = (customer && customer.email) ? customer.email : "";
+
+    const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
+    if (!clientEmail) return; 
+
+    const subject = encodeURIComponent(`Invoice from ${CONFIG.company.name} - ${invoice.invoiceNumber}`);
+    const bodyText = `Dear ${invoice.customerName || 'Client'},\n\n`
+                   + `Thank you for choosing ${CONFIG.company.name}.\n\n`
+                   + `Invoice No: ${invoice.invoiceNumber}\n`
+                   + `Total Amount: ${CONFIG.invoice.currency} ${invoice.grandTotal.toFixed(2)}\n\n`
+                   + `Please find your document link here: ${CONFIG.scriptURL}\n\n`
+                   + `Regards,\n`
+                   + `${CONFIG.company.name}\n`
+                   + `${CONFIG.company.phone}`;
+
+    const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+
+    // Bulletproof way to open mail client
+    const linkElement = document.createElement('a');
+    linkElement.href = mailtoLink;
+    // target="_blank" ensures it tries to open in a new tab if no app is found
+    linkElement.target = '_blank'; 
+    document.body.appendChild(linkElement);
+    linkElement.click();
+    document.body.removeChild(linkElement);
+    
+    if(typeof showToast === 'function') showToast("Opening Mail app...", 'success');
+}
