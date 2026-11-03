@@ -182,18 +182,26 @@ function generateInvoicePDF(invoiceId, preview = false) {
         vLine(col.amount.x, rowTop, y);
     });
 
-    // NO empty stretch — footer aata hai turant baad
-    // Sirf agar page bohot khali ho aur professional bottom-lock chahiye
-    // tab minimal gap allow (optional small pad)
-    hLine(y);
-
-    // Agar footer is page par nahi mahrega to new page
+    // ✅ PRO FEATURE: Table ko neeche tak stretch karein aur Footer bottom par lock karein
     if (y + FOOTER_H > pageBottom) {
+        hLine(y);
         closeFrame(y);
         doc.addPage();
         y = M;
-        hLine(y);
+        drawTableHeader(); // Naye page par bhi header continue karega
     }
+
+    const footerStartY = pageBottom - FOOTER_H;
+    if (y < footerStartY) {
+        // Khali bachi hui jagah par columns ki vertical lines ko stretch karo
+        vLine(col.desc.x, y, footerStartY);
+        vLine(col.qty.x, y, footerStartY);
+        vLine(col.unit.x, y, footerStartY);
+        vLine(col.rate.x, y, footerStartY);
+        vLine(col.amount.x, y, footerStartY);
+        y = footerStartY;
+    }
+    hLine(y); // Footer shuru hone se pehle bottom line
 
     // ─── TOTALS ───
     const totalsTop = y;
@@ -457,14 +465,25 @@ function generateManualInvoicePDF(data, preview = false) {
         vLine(col.amount.x, rowTop, y);
     });
 
-    hLine(y);
-
+    // ✅ PRO FEATURE: Table ko neeche tak stretch karein aur Footer bottom par lock karein
     if (y + FOOTER_H > pageBottom) {
+        hLine(y);
         closeFrame(y);
         doc.addPage();
         y = M;
-        hLine(y);
+        drawTableHeader(); 
     }
+
+    const footerStartY = pageBottom - FOOTER_H;
+    if (y < footerStartY) {
+        vLine(col.desc.x, y, footerStartY);
+        vLine(col.qty.x, y, footerStartY);
+        vLine(col.unit.x, y, footerStartY);
+        vLine(col.rate.x, y, footerStartY);
+        vLine(col.amount.x, y, footerStartY);
+        y = footerStartY;
+    }
+    hLine(y);
 
     // TOTALS TEXT
     const tLines = doc.splitTextToSize(data.totalsText || '', W - 4);
