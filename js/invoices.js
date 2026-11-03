@@ -523,30 +523,21 @@ function sendInvoiceEmail(invoiceId) {
     const invoices = DB.get(DB_KEYS.INVOICES);
     const invoice = invoices.find(i => i.id === invoiceId);
     
-    if (!invoice) {
-        if(typeof showToast === 'function') showToast("Invoice not found!", "error");
-        return;
-    }
+    if (!invoice) return;
 
-    // Try to pre-fill email if customer database has it (optional)
     const customers = DB.get(DB_KEYS.CUSTOMERS) || [];
     const customer = customers.find(c => c.id === invoice.customerId);
     const defaultEmail = (customer && customer.email) ? customer.email : "";
 
-    // Prompt user for the client's email address
     const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
-    
-    if (!clientEmail) {
-        return; // Process cancelled by user
-    }
+    if (!clientEmail) return; 
 
-    // Prepare data for the Apps Script Backend
     const invoiceDetails = {
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.customerName || 'Valued Client',
         amount: invoice.grandTotal.toFixed(2),
         currency: CONFIG.invoice.currency,
-        pdfLink: CONFIG.scriptURL // Note: Users can view details here or you can swap with a direct PDF URL if hosted
+        pdfLink: CONFIG.scriptURL 
     };
 
     const companyData = {
@@ -561,37 +552,21 @@ function sendInvoiceEmail(invoiceId) {
         colors: CONFIG.company.colors
     };
 
-    if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.sending, 'info');
+    if(typeof showToast === 'function') showToast("Sending email, please wait...", 'info');
 
-    // Call Google Apps Script backend using google.script.run
-    if (typeof google !== 'undefined' && google.script && google.script.run) {
-        google.script.run
-            .withSuccessHandler(function(response) {
-                if (response && response.success) {
-                    if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.success, 'success');
-                } else {
-                    if(typeof showToast === 'function') showToast("Failed: " + (response.message || "Unknown error"), 'error');
-                }
-            })
-            .withFailureHandler(function(error) {
-                if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.error + " " + error.message, 'error');
-            })
-            .sendProfessionalEmail(invoiceDetails, clientEmail, companyData);
-    } else {
-        // Fallback for Fetch API (if testing outside Apps Script UI)
-        fetch(CONFIG.scriptURL, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'sendEmail',
-                invoiceDetails: invoiceDetails,
-                clientEmail: clientEmail,
-                companyData: companyData
-            })
-        }).then(res => res.json())
-          .then(data => {
-              if (typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.success, 'success');
-          }).catch(err => {
-              if (typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.error, 'error');
-          });
-    }
+    // Bypass CORS with mode: 'no-cors'
+    fetch(CONFIG.scriptURL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({
+            action: 'sendEmail',
+            invoiceDetails: invoiceDetails,
+            clientEmail: clientEmail,
+            companyData: companyData
+        })
+    }).then(() => {
+        if(typeof showToast === 'function') showToast("Email successfully sent to the client!", 'success');
+    }).catch(err => {
+        if(typeof showToast === 'function') showToast("Error connecting to server.", 'error');
+    });
 }
