@@ -130,6 +130,7 @@ function renderInvoices(container) {
                                             <button class="btn btn-outline btn-xs" onclick="viewInvoice('${inv.id}')">View</button>
                                             <button class="btn btn-accent btn-xs" onclick="generateInvoicePDF('${inv.id}')">PDF</button>
                                             <button class="btn btn-success btn-xs" onclick="shareInvoiceWhatsApp('${inv.id}')">WA</button>
+                                            <button class="btn btn-primary btn-xs" onclick="sendInvoiceEmail('${inv.id}')" style="background-color: #1a4d8f; color: #fff;">✉️ Email</button>
                                             <button class="btn btn-secondary btn-xs" onclick="openInvoiceForm('${inv.id}')">Edit</button>
                                             <button class="btn btn-danger btn-xs" onclick="deleteInvoice('${inv.id}')">×</button>
                                         </div>
@@ -515,4 +516,82 @@ async function deleteInvoice(invoiceId) {
 // View Invoice triggers PDF preview
 function viewInvoice(invoiceId) {
     generateInvoicePDF(invoiceId, true);
+}
+
+// ─── NEW: SEND PROFESSIONAL EMAIL FUNCTION ───
+function sendInvoiceEmail(invoiceId) {
+    const invoices = DB.get(DB_KEYS.INVOICES);
+    const invoice = invoices.find(i => i.id === invoiceId);
+    
+    if (!invoice) {
+        if(typeof showToast === 'function') showToast("Invoice not found!", "error");
+        return;
+    }
+
+    // Try to pre-fill email if customer database has it (optional)
+    const customers = DB.get(DB_KEYS.CUSTOMERS) || [];
+    const customer = customers.find(c => c.id === invoice.customerId);
+    const defaultEmail = (customer && customer.email) ? customer.email : "";
+
+    // Prompt user for the client's email address
+    const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
+    
+    if (!clientEmail) {
+        return; // Process cancelled by user
+    }
+
+    // Prepare data for the Apps Script Backend
+    const invoiceDetails = {
+        invoiceNumber: invoice.invoiceNumber,
+        clientName: invoice.customerName || 'Valued Client',
+        amount: invoice.grandTotal.toFixed(2),
+        currency: CONFIG.invoice.currency,
+        pdfLink: CONFIG.scriptURL // Note: Users can view details here or you can swap with a direct PDF URL if hosted
+    };
+
+    const companyData = {
+        name: CONFIG.company.name,
+        tagline: CONFIG.company.tagline,
+        email: CONFIG.company.email,
+        phone: CONFIG.company.phone,
+        address: CONFIG.company.address,
+        emirate: CONFIG.company.emirate,
+        country: CONFIG.company.country,
+        logoId: CONFIG.company.logoId,
+        colors: CONFIG.company.colors
+    };
+
+    if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.sending, 'info');
+
+    // Call Google Apps Script backend using google.script.run
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+            .withSuccessHandler(function(response) {
+                if (response && response.success) {
+                    if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.success, 'success');
+                } else {
+                    if(typeof showToast === 'function') showToast("Failed: " + (response.message || "Unknown error"), 'error');
+                }
+            })
+            .withFailureHandler(function(error) {
+                if(typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.error + " " + error.message, 'error');
+            })
+            .sendProfessionalEmail(invoiceDetails, clientEmail, companyData);
+    } else {
+        // Fallback for Fetch API (if testing outside Apps Script UI)
+        fetch(CONFIG.scriptURL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'sendEmail',
+                invoiceDetails: invoiceDetails,
+                clientEmail: clientEmail,
+                companyData: companyData
+            })
+        }).then(res => res.json())
+          .then(data => {
+              if (typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.success, 'success');
+          }).catch(err => {
+              if (typeof showToast === 'function') showToast(CONFIG.emailSettings.messages.error, 'error');
+          });
+    }
 }
