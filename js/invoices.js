@@ -518,7 +518,7 @@ function viewInvoice(invoiceId) {
     generateInvoicePDF(invoiceId, true);
 }
 
-// ─── NEW: SEND PROFESSIONAL EMAIL FUNCTION ───
+// ─── PROFESSIONAL EMAIL FUNCTION (LINKED TO SETTINGS URL) ───
 function sendInvoiceEmail(invoiceId) {
     const invoices = DB.get(DB_KEYS.INVOICES);
     const invoice = invoices.find(i => i.id === invoiceId);
@@ -532,12 +532,21 @@ function sendInvoiceEmail(invoiceId) {
     const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
     if (!clientEmail) return; 
 
+    // Settings se live URL uthayein (agar khali hai toh config wala fallback lega)
+    const currentSettings = typeof DB.getSettings === 'function' ? DB.getSettings() : {};
+    const activeScriptURL = currentSettings.scriptUrl || CONFIG.scriptURL;
+
+    if (!activeScriptURL) {
+        if(typeof showToast === 'function') showToast("Please save Apps Script URL in Settings first!", 'error');
+        return;
+    }
+
     const invoiceDetails = {
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.customerName || 'Valued Client',
         amount: invoice.grandTotal.toFixed(2),
         currency: CONFIG.invoice.currency,
-        pdfLink: CONFIG.scriptURL 
+        pdfLink: activeScriptURL // Dynamic URL yahan pass kar diya
     };
 
     const companyData = {
@@ -552,10 +561,10 @@ function sendInvoiceEmail(invoiceId) {
         colors: CONFIG.company.colors
     };
 
-    if(typeof showToast === 'function') showToast("Sending email, please wait...", 'info');
+    if(typeof showToast === 'function') showToast("Sending professional email...", 'info');
 
-    // Bypass CORS with mode: 'no-cors'
-    fetch(CONFIG.scriptURL, {
+    // Bypass CORS with mode: 'no-cors' aur active URL use karega
+    fetch(activeScriptURL, {
         method: 'POST',
         mode: 'no-cors',
         body: JSON.stringify({
@@ -569,44 +578,4 @@ function sendInvoiceEmail(invoiceId) {
     }).catch(err => {
         if(typeof showToast === 'function') showToast("Error connecting to server.", 'error');
     });
-}
-// ─── COMPOSE EMAIL FUNCTION (MAILTO DIRECTORY) ───
-function sendInvoiceEmail(invoiceId) {
-    const invoices = DB.get(DB_KEYS.INVOICES);
-    const invoice = invoices.find(i => i.id === invoiceId);
-    
-    if (!invoice) {
-        alert("Invoice not found!");
-        return;
-    }
-
-    const customers = DB.get(DB_KEYS.CUSTOMERS) || [];
-    const customer = customers.find(c => c.id === invoice.customerId);
-    const defaultEmail = (customer && customer.email) ? customer.email : "";
-
-    const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
-    if (!clientEmail) return; 
-
-    const subject = encodeURIComponent(`Invoice from ${CONFIG.company.name} - ${invoice.invoiceNumber}`);
-    const bodyText = `Dear ${invoice.customerName || 'Client'},\n\n`
-                   + `Thank you for choosing ${CONFIG.company.name}.\n\n`
-                   + `Invoice No: ${invoice.invoiceNumber}\n`
-                   + `Total Amount: ${CONFIG.invoice.currency} ${invoice.grandTotal.toFixed(2)}\n\n`
-                   + `Please find your document link here: ${CONFIG.scriptURL}\n\n`
-                   + `Regards,\n`
-                   + `${CONFIG.company.name}\n`
-                   + `${CONFIG.company.phone}`;
-
-    const mailtoLink = `mailto:${clientEmail}?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
-
-    // Bulletproof way to open mail client
-    const linkElement = document.createElement('a');
-    linkElement.href = mailtoLink;
-    // target="_blank" ensures it tries to open in a new tab if no app is found
-    linkElement.target = '_blank'; 
-    document.body.appendChild(linkElement);
-    linkElement.click();
-    document.body.removeChild(linkElement);
-    
-    if(typeof showToast === 'function') showToast("Opening Mail app...", 'success');
 }
