@@ -200,5 +200,3 @@ function exportBackup() {
     URL.revokeObjectURL(url);
     showToast('Backup downloaded!', 'success');
 }
-
-```
