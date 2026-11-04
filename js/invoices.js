@@ -517,22 +517,62 @@ async function deleteInvoice(invoiceId) {
 function viewInvoice(invoiceId) {
     generateInvoicePDF(invoiceId, true);
 }
+// ─── PROFESSIONAL EMAIL MODAL & SEND FUNCTION ───
 
-// ─── PROFESSIONAL EMAIL FUNCTION (LINKED TO SETTINGS URL) ───
 function sendInvoiceEmail(invoiceId) {
     const invoices = DB.get(DB_KEYS.INVOICES);
     const invoice = invoices.find(i => i.id === invoiceId);
-    
     if (!invoice) return;
 
     const customers = DB.get(DB_KEYS.CUSTOMERS) || [];
     const customer = customers.find(c => c.id === invoice.customerId);
     const defaultEmail = (customer && customer.email) ? customer.email : "";
+    const clientName = invoice.customerName || 'Client';
 
-    const clientEmail = prompt(`Enter email address for ${invoice.customerName || 'Client'}:`, defaultEmail);
-    if (!clientEmail) return; 
+    // Purana modal hatayein (agar pehle se open ho)
+    const oldModal = document.getElementById('emailPromptModal');
+    if (oldModal) oldModal.remove();
 
-    // Settings se live URL uthayein (agar khali hai toh config wala fallback lega)
+    // Naya Premium Custom Modal Banayein
+    const modalHtml = `
+        <div class="modal-overlay" id="emailPromptModal">
+            <div class="modal" style="max-width:450px;">
+                <div class="modal-header">
+                    <h2>✉️ Send Professional Email</h2>
+                    <button class="modal-close" onclick="closeModal('emailPromptModal')">×</button>
+                </div>
+                <div class="modal-body" style="padding: 20px 30px;">
+                    <p style="margin-bottom: 15px; font-size: 0.95rem; color: var(--text-light);">
+                        Send Invoice <strong>${invoice.invoiceNumber}</strong> to <strong>${clientName}</strong>
+                    </p>
+                    <div class="form-group">
+                        <label style="font-weight: bold; color: var(--primary);">Client Email Address *</label>
+                        <input type="email" id="customEmailInput" value="${defaultEmail}" placeholder="e.g., client@company.com" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 1rem; margin-top: 5px; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: none; padding-top: 0;">
+                    <button class="btn btn-secondary" onclick="closeModal('emailPromptModal')">Cancel</button>
+                    <button class="btn btn-primary" onclick="executeSendEmail('${invoiceId}')" style="background-color: #1a4d8f; padding: 10px 24px; font-weight: 600;">🚀 Send Now</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function executeSendEmail(invoiceId) {
+    const clientEmail = document.getElementById('customEmailInput').value.trim();
+    if (!clientEmail) {
+        if(typeof showToast === 'function') showToast("Please enter a valid email address!", 'error');
+        return;
+    }
+
+    closeModal('emailPromptModal');
+
+    const invoices = DB.get(DB_KEYS.INVOICES);
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return;
+
     const currentSettings = typeof DB.getSettings === 'function' ? DB.getSettings() : {};
     const activeScriptURL = currentSettings.scriptUrl || CONFIG.scriptURL;
 
@@ -546,7 +586,7 @@ function sendInvoiceEmail(invoiceId) {
         clientName: invoice.customerName || 'Valued Client',
         amount: invoice.grandTotal.toFixed(2),
         currency: CONFIG.invoice.currency,
-        pdfLink: activeScriptURL // Dynamic URL yahan pass kar diya
+        pdfLink: activeScriptURL 
     };
 
     const companyData = {
@@ -563,7 +603,6 @@ function sendInvoiceEmail(invoiceId) {
 
     if(typeof showToast === 'function') showToast("Sending professional email...", 'info');
 
-    // Bypass CORS with mode: 'no-cors' aur active URL use karega
     fetch(activeScriptURL, {
         method: 'POST',
         mode: 'no-cors',
