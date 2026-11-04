@@ -1,8 +1,9 @@
-
+// ============================================================================
+// AL BOWRY CARPENTRY LLC - Settings Module (CLOUD SYNCED)
+// ============================================================================
 
 function renderSettings(container) {
     const s = DB.getSettings();
-    // Assuming credentials doc was fetched during login, we don't display password for security.
     
     container.innerHTML = `
         <div class="settings-page">
@@ -153,16 +154,14 @@ async function saveAllSettings() {
     settings.invoicePrefix = document.getElementById('set_invoicePrefix').value.trim() || 'ABC';
     settings.invoiceNotes = document.getElementById('set_invoiceNotes').value.trim();
     
-    // NEW: Save Script URL to Cloud Settings
+    // Save Script URL
     settings.scriptUrl = document.getElementById('set_scriptUrl').value.trim();
 
     if (window._newLogo) settings.logoUrl = window._newLogo;
     if (window._newSig) settings.signatureUrl = window._newSig;
 
-    // Save Settings to Cloud
     await DB.saveSettings(settings);
 
-    // Update Credentials if provided
     const newEmail = document.getElementById('set_loginEmail').value.trim();
     const newPass = document.getElementById('set_loginPassword').value;
     if (newEmail && newPass) {
