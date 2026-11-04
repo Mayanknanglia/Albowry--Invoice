@@ -1,11 +1,4 @@
-Yeh rahi aapki **100% complete aur safe `js/settings.js` file**. Isme aapka ek bhi purana data (Company Info, Bank Details, Logo, Backup) nahi hataya gaya hai. Maine sirf wahan "Preferences & Security" wale section mein "Apps Script Web App URL" ka input joda hai aur use save/sync hone ka logic add kiya hai.
 
-Isko copy karke apni `settings.js` file mein paste kar lijiye:
-
-```javascript
-// ============================================================================
-// AL BOWRY CARPENTRY LLC - Settings Module (CLOUD SYNCED)
-// ============================================================================
 
 function renderSettings(container) {
     const s = DB.getSettings();
