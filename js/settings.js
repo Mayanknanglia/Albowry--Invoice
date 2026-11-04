@@ -1,6 +1,11 @@
-// ═══════════════════════════════════════════════════════
+Yeh rahi aapki **100% complete aur safe `js/settings.js` file**. Isme aapka ek bhi purana data (Company Info, Bank Details, Logo, Backup) nahi hataya gaya hai. Maine sirf wahan "Preferences & Security" wale section mein "Apps Script Web App URL" ka input joda hai aur use save/sync hone ka logic add kiya hai.
+
+Isko copy karke apni `settings.js` file mein paste kar lijiye:
+
+```javascript
+// ============================================================================
 // AL BOWRY CARPENTRY LLC - Settings Module (CLOUD SYNCED)
-// ═══════════════════════════════════════════════════════
+// ============================================================================
 
 function renderSettings(container) {
     const s = DB.getSettings();
@@ -56,12 +61,20 @@ function renderSettings(container) {
                     </div>
                 </div>
 
-                <!-- PREFERENCES & CREDENTIALS -->
+                <!-- PREFERENCES & SECURITY -->
                 <div class="settings-section">
                     <div class="settings-section-header">📄 Preferences & Security</div>
                     <div class="settings-section-body">
                         <div class="form-group"><label>Invoice Prefix</label><input type="text" id="set_invoicePrefix" value="${s.invoicePrefix || 'ABC'}"></div>
                         <div class="form-group"><label>Invoice Terms & Notes</label><textarea id="set_invoiceNotes" rows="3">${s.invoiceNotes || ''}</textarea></div>
+                        
+                        <!-- NEW: Apps Script Backend URL -->
+                        <div class="form-group mt-2" style="border-top: 1px dashed var(--border); padding-top: 12px;">
+                            <label style="color:var(--primary); font-weight:bold;">🔗 Apps Script Web App URL</label>
+                            <input type="text" id="set_scriptUrl" value="${s.scriptUrl || ''}" placeholder="https://script.google.com/macros/s/..." style="width: 100%;">
+                            <div class="hint">Required for sending Professional Emails & saving Inquiry PDFs.</div>
+                        </div>
+
                         <div class="form-group mt-2" style="border-top: 1px solid var(--border); padding-top: 12px;">
                             <label style="color:var(--danger)">Update Login Credentials</label>
                             <input type="email" id="set_loginEmail" placeholder="New Admin Email" class="mb-1">
@@ -146,6 +159,9 @@ async function saveAllSettings() {
     settings.bankBranch = document.getElementById('set_bankBranch').value.trim();
     settings.invoicePrefix = document.getElementById('set_invoicePrefix').value.trim() || 'ABC';
     settings.invoiceNotes = document.getElementById('set_invoiceNotes').value.trim();
+    
+    // NEW: Save Script URL to Cloud Settings
+    settings.scriptUrl = document.getElementById('set_scriptUrl').value.trim();
 
     if (window._newLogo) settings.logoUrl = window._newLogo;
     if (window._newSig) settings.signatureUrl = window._newSig;
@@ -169,6 +185,7 @@ async function saveAllSettings() {
 
     if (typeof loadSidebarInfo === 'function') loadSidebarInfo();
     window._newLogo = null; window._newSig = null;
+    showToast('Settings saved successfully', 'success');
 }
 
 function exportBackup() {
@@ -190,3 +207,5 @@ function exportBackup() {
     URL.revokeObjectURL(url);
     showToast('Backup downloaded!', 'success');
 }
+
+```
