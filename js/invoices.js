@@ -561,60 +561,73 @@ function sendInvoiceEmail(invoiceId) {
 }
 
 function executeSendEmail(invoiceId) {
-    const clientEmail = document.getElementById('customEmailInput').value.trim();
-    if (!clientEmail) {
-        if(typeof showToast === 'function') showToast("Please enter a valid email address!", 'error');
-        return;
+    try {
+        const clientEmail = document.getElementById('customEmailInput').value.trim();
+        if (!clientEmail) {
+            alert("Please enter a valid email address!");
+            return;
+        }
+
+        closeModal('emailPromptModal');
+
+        // Invoice data uthao
+        const invoices = DB.get(DB_KEYS.INVOICES);
+        const invoice = invoices.find(i => i.id === invoiceId);
+        if (!invoice) return;
+
+        // Settings se live URL aur baaki data uthao
+        const currentSettings = typeof DB.getSettings === 'function' ? DB.getSettings() : {};
+        const activeScriptURL = currentSettings.scriptUrl;
+
+        if (!activeScriptURL) {
+            alert("Bhai, Apps Script URL missing hai! Pehle Settings page me jaakar URL paste aur Save kijiye.");
+            return;
+        }
+
+        const invoiceDetails = {
+            invoiceNumber: invoice.invoiceNumber,
+            clientName: invoice.customerName || 'Valued Client',
+            amount: invoice.grandTotal.toFixed(2),
+            currency: "AED",
+            pdfLink: activeScriptURL 
+        };
+
+        const companyData = {
+            name: currentSettings.companyName || "Al Bowry Carpentry LLC",
+            tagline: "Master Craftsmanship",
+            email: currentSettings.email || "",
+            phone: currentSettings.phone || "",
+            address: currentSettings.address || "",
+            emirate: "Dubai",
+            country: "UAE",
+            logoId: ""
+        };
+
+        if(typeof showToast === 'function') {
+            showToast("Sending professional email...", 'info');
+        } else {
+            alert("Sending email, please wait...");
+        }
+
+        fetch(activeScriptURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({
+                action: 'sendEmail',
+                invoiceDetails: invoiceDetails,
+                clientEmail: clientEmail,
+                companyData: companyData
+            })
+        }).then(() => {
+            if(typeof showToast === 'function') showToast("Email successfully sent to the client!", 'success');
+            else alert("Email successfully sent!");
+        }).catch(err => {
+            alert("Server connection error: " + err.message);
+        });
+
+    } catch (error) {
+        // Agar koi aur galti hogi toh ab chupchap band nahi hoga, pop-up me error batayega!
+        alert("Code mein error aaya: " + error.message);
+        console.error(error);
     }
-
-    closeModal('emailPromptModal');
-
-    const invoices = DB.get(DB_KEYS.INVOICES);
-    const invoice = invoices.find(i => i.id === invoiceId);
-    if (!invoice) return;
-
-    const currentSettings = typeof DB.getSettings === 'function' ? DB.getSettings() : {};
-    const activeScriptURL = currentSettings.scriptUrl || CONFIG.scriptURL;
-
-    if (!activeScriptURL) {
-        if(typeof showToast === 'function') showToast("Please save Apps Script URL in Settings first!", 'error');
-        return;
-    }
-
-    const invoiceDetails = {
-        invoiceNumber: invoice.invoiceNumber,
-        clientName: invoice.customerName || 'Valued Client',
-        amount: invoice.grandTotal.toFixed(2),
-        currency: CONFIG.invoice.currency,
-        pdfLink: activeScriptURL 
-    };
-
-    const companyData = {
-        name: CONFIG.company.name,
-        tagline: CONFIG.company.tagline,
-        email: CONFIG.company.email,
-        phone: CONFIG.company.phone,
-        address: CONFIG.company.address,
-        emirate: CONFIG.company.emirate,
-        country: CONFIG.company.country,
-        logoId: CONFIG.company.logoId,
-        colors: CONFIG.company.colors
-    };
-
-    if(typeof showToast === 'function') showToast("Sending professional email...", 'info');
-
-    fetch(activeScriptURL, {
-        method: 'POST',
-        mode: 'no-cors',
-        body: JSON.stringify({
-            action: 'sendEmail',
-            invoiceDetails: invoiceDetails,
-            clientEmail: clientEmail,
-            companyData: companyData
-        })
-    }).then(() => {
-        if(typeof showToast === 'function') showToast("Email successfully sent to the client!", 'success');
-    }).catch(err => {
-        if(typeof showToast === 'function') showToast("Error connecting to server.", 'error');
-    });
 }
